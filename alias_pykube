@@ -1,0 +1,79 @@
+#!/bin/bash
+
+PYKUBE=
+for pykube in $ /root/hroot/htools/pykube /root/htools/pykube
+do
+    if test -e "$pykube";then
+        PYKUBE=$pykube
+        break
+    fi
+done
+
+
+_k_do() {
+    $PYKUBE "$@"
+}
+_k_get() {
+    _k_do get "$@"
+}
+_k_describe() {
+    _k_do describe "$@"
+}
+_k_scale() {
+    local kind="$1"
+    local object="$2"
+    local num="${3:-0}"
+    shift
+    shift
+    shift
+    _k_do scale "$kind" "$object" --replicas="$num" "$@"
+}
+
+
+if test -n "$PYKUBE";then
+
+## get 
+alias kg="_k_get"
+alias kgp="_k_get pod"
+alias kgs="_k_get svc"
+alias kgd="_k_get deployment"
+alias kgn="_k_get node"
+alias kgc="_k_get configmap"
+alias kgnw="_k_get net-attach-def"
+alias kga="_k_get all"
+
+## describe
+alias kd="_k_describe"
+alias kdp="_k_describe pod"
+alias kds="_k_describe svc"
+alias kdd="_k_describe deployment"
+alias kdn="_k_describe node"
+alias kdc="_k_describe configmap"
+alias kdnw="_k_describe net-attach-def"
+alias kda="_k_describe all"
+
+## delete
+alias kddp="_k_do delete pod"
+alias kdds="_k_do delete svc"
+alias kddd="_k_do delete deployment"
+
+## edit
+alias ke="_k_do edit"
+alias kep="_k_do edit pod"
+alias kes="_k_do edit svc"
+alias ked="_k_do edit deployment"
+alias kenw="_k_do edit net-attach-def"
+alias kec="_k_do edit configmap"
+
+## log
+alias klp="_k_do logs pod"
+
+alias kx="_k_do exec pod"
+alias kfa="kubectl apply -f"
+alias kfc="kubectl create -f"
+alias kfd="kubectl delete -f"
+
+## kubectl -n kube-system
+alias ks="kubectl -n kube-system"
+alias ksd="_k_scale deployment"
+fi

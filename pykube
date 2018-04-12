@@ -1,0 +1,287 @@
+#!/usr/bin/env python
+
+import os
+import subprocess
+import sys
+import re
+
+KUBECTL_GET_TMPFILE="/tmp/hhl.kubectl_alias/get.tmpfile"
+
+tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
+if not os.path.isdir(tmpdir):
+    os.mkdir(tmpdir)
+
+def has_no_ns(kind):
+    return kind in ["node"]
+
+class Utility:
+    @staticmethod
+    def write_file(filename, content):
+        try:
+            with open(filename, "w") as f:
+                f.write(content)
+        except:
+            pass
+
+    @staticmethod
+    def read_file(filename):
+        content = ""
+        try:
+            with open(filename, "r") as f:
+                content = f.read()
+        except:
+            pass
+        return content
+
+    @staticmethod
+    def execute(cmd, stdio=False):
+        if stdio:
+            p = subprocess.Popen(cmd, shell=True, close_fds=True)
+            stdout, stderr = p.communicate()
+            stdout = ""
+        else:
+            p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True)
+            stdout, stderr = p.communicate()
+	#if p.returncode != 0:
+	#    logging.error('Failed to execute cmd: %s :%s', cmd, stderr.strip())
+	#else:
+	#    in_ = ' < %s ' % input_ if input_ else ''
+	#    logging.debug('Successful to execute cmd: %s %s:%s', cmd, in_, stdout.strip())
+	return (p.returncode, stdout, stderr)
+
+class Action(object):
+    def __init__(self, name):
+        super(self, Action).__init__()
+        self.name = name
+
+class Kind(object):
+    def __init__(self, name):
+        super(self, Kind).__init__()
+        self.name = name
+
+class Resource(object):
+    def __init__(self, name):
+        super(self, Resource).__init__()
+        self.name = name
+
+
+class Executor(object):
+    def __init__(self, action, kind, resource="", others=""):
+        super(Executor, self).__init__()
+        self.action = action
+        self.kind = kind
+        self.resource = resource
+        self.others = others
+
+        self.kind, self.resource = self._reset_kind_resource(self.kind, self.resource)
+
+    def _reset_kind_resource(self, kind, resource):
+        # handle "pod/kube-proxy-pch4q" and "all pod/kube-proxy-pch4q"
+        if "all" == kind and resource and "/" in resource[1:]:
+            kind = resource
+            resource = "."
+        if "/" in kind[1:] and resource == ".":
+            ss = kind.split("/", 1)
+            kind = ss[0].split(".")[0]
+            resource = ss[1]
+        return kind, resource
+
+    def kube_execute(self, namespace, action, kind, resource, others):
+        if namespace == "":
+            namespace = "--all-namespaces"
+        elif namespace and not namespace.startswith("-"):
+            namespace = "-n " + namespace
+        if has_no_ns(kind):
+            namespace = ""
+
+        if action == "logs":
+            kind = ""
+        elif action == "exec":
+            kind = ""
+            if others == "":
+                others = "bash"
+            others = "-it -- " + others
+
+        args = [
+                "kubectl",
+                action,
+                namespace,
+                kind,
+                resource,
+                others,
+                ]
+
+        cmd = " ".join(args)
+        print >> sys.stderr, "# ", cmd
+        code, out, err = Utility.execute(cmd, action in ["edit", "exec", "logs"])
+        if code != 0:
+            print code, err
+            sys.exit(1)
+        if err:
+            print err.strip()
+        return out
+
+    def is_list_format(self, others):
+        while "-o " in others:
+            others = others.replace("-o ", "-o")
+        return not ("-oyaml" in others or "-ojson" in others)
+
+    def execute(self):
+        _pattern = ""
+        action = self.action
+        kind = self.kind
+        resource = ""
+        others = self.others
+
+        #import pdb;pdb.set_trace()
+        # 1. expand namespace and resource
+        many = False
+        if self.resource.isdigit():
+            lines = Utility.read_file(KUBECTL_GET_TMPFILE + "." + kind).splitlines()
+            items = self.extract_namespace_resource(lines, [self.resource])
+            if items:
+                namespace = items[0][0]
+                resource = items[0][1]
+            else:
+                namespace = ""
+                resource = ""
+                many = True
+            kind, resource = self._reset_kind_resource(kind, resource)
+        elif self.resource.startswith("."):
+            namespace = self.resource[1:]
+            if namespace.startswith("."):
+                namespace = {".ks": "kube-system", ".d": "default"}.get(namespace, namespace)
+            many = True
+        elif self.resource.startswith("/"):
+            _pattern = self.resource[1:]
+            namespace = ""
+            many = True
+        else:
+            resource = self.resource
+            namespace = self.extract_ns_by_name(self.kube_execute("", "get", kind, "", "").splitlines(), 1, resource)
+
+        if action == "get" or many or _pattern:
+            result = self.kube_execute(namespace, "get", kind, resource, "-o wide" if not others and kind == "pod" else others)
+            lines = self.output_result(result, namespace, kind, _pattern, many and self.is_list_format(others))
+            if action == "get" or self.resource == ".":
+                return
+
+            namespace, resources = self.extract_namespace_resource_all(lines)
+            resource = " ".join(resources)
+
+        # TODO different namespaces
+
+        if " " in resource or action in ["delete"]:
+            if not self.confirm_before_do("\nAre you sure to %s %s %s ?(y/n)" % (action, kind, resource)):
+                print "Aborted."
+                return
+
+        result = self.kube_execute(namespace, action, kind, resource, others)
+        print result
+
+    def output_result(self, result, namespace, kind, pattern, line_number):
+        lines = result.splitlines()
+        if pattern:
+            lines = self.filter_by_pattern(lines, pattern)
+        if line_number:
+            prefix = ". " if has_no_ns(kind) else ""
+            if namespace:
+                prefix = namespace + " " + prefix
+            lines = self.add_line_number(lines, prefix)
+
+        result = "\n".join(lines)
+        print result
+
+        if line_number:
+            Utility.write_file(KUBECTL_GET_TMPFILE + "." + kind, result + "\n")
+        return lines
+
+    def filter_by_pattern(self, lines, pattern):
+        lines2 = []
+        rr = re.compile(pattern)
+        for line in lines:
+            if line.startswith("NAME ") or line.startswith("NAMESPACE ") or rr.search(line):
+                lines2.append(line)
+        return lines2
+
+    def confirm_before_do(self, message):
+        r = raw_input(message)
+        return r.strip().lower() in ["y", "yes"]
+
+    def extract_namespace_resource_all(self, lines):
+        namespace = ""
+        resources = []
+        for line in lines[1:]:
+            items = line.split()
+            namespace = items[1]
+            resources.append(items[2])
+        return namespace, resources
+
+    def extract_ns_by_name(self, lines, column, name):
+        for line in lines:
+            items = line.split()
+            if items[column] == name:
+                return items[column - 1]
+        return ""
+
+    def extract_namespace_resource(self, lines, numbers):
+        if not lines:
+            return lines
+        lines2 = []
+        for line in lines:
+            items = line.split()
+            if items[0] in numbers:
+                lines2.append((items[1], items[2]))
+                numbers.remove(items[0])
+            if not numbers:
+                break
+        return lines2
+
+    def add_line_number(self, lines, prefix=""):
+        lines2 = []
+        for index, line in enumerate(lines):
+            s = str(index)
+            if line.startswith("NAME ") or line.startswith("NAMESPACE"):
+                s = "=="
+            lines2.append("%-2s %s" % (s, prefix+line))
+        return lines2
+
+def test():
+    # 1. resource is "", but others is not
+    Executor("delete", "pod", "/can").execute()
+    Executor("get", "pod", "1", "-o wide").execute()
+    sys.exit(0)
+    Executor("get", "pod").execute()
+    Executor("get", "pod", ".ns").execute()
+    Executor("get", "pod", "1", "-o wide").execute()
+    Executor("get", "pod", "k4", "-o wide").execute()
+
+    Executor("get", "all", "daemonset.apps/helo").execute()
+    Executor("get", "daemonset.apps/helo").execute()
+
+    Executor("logs", "*", "pod1").execute()
+    Executor("exec", "*", "pod1").execute()
+    Executor("exec", "*", "pod1", "ls /").execute()
+
+    Executor("get", "pod", "/k4", "-o wide").execute()
+
+def main(argv):
+    action = "get"
+    kind = ""
+    resource = "."
+    others = ""
+
+    argv = argv[:]
+    argv.reverse()
+    if argv and argv[-1][0] != "-":
+        action = argv.pop()
+    if argv and argv[-1][0] != "-":
+        kind = argv.pop()
+    if argv and argv[-1][0] != "-":
+        resource = argv.pop()
+    argv.reverse()
+    others = " ".join(argv)
+    Executor(action, kind, resource, others).execute()
+
+main(sys.argv[1:])
+
