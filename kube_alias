@@ -6,44 +6,25 @@ _find_ns() {
     fi
 }
 
-_k_describe() {
-    local ns=$(_find_ns "$1" "$2")
+_k_do() {
+    local action=$1
+    local kind=$2
+    local object=$3
+    shift 3
+
+    local ns=$(_find_ns "$kind" "$object")
     if test -n "$ns";then
-        kubectl -n $ns describe $@
+        if [ "$action" = logs ];then
+            kind=
+        elif [ "$action" = exec ];then
+            kind=
+            set -- -- "$@"
+        fi
+
+        echo kubectl -n $ns $action $kind $object $@
+        kubectl -n $ns $action $kind $object $@
     else
         echo "can not find namespace for: $@"
-        return
-    fi
-}
-
-_k_edit() {
-    local ns=$(_find_ns "$1" "$2")
-    if test -n "$ns";then
-        kubectl -n $ns edit $@
-    else
-        echo "can not find namespace for: $@"
-        return
-    fi
-}
-
-_k_logs() {
-    local ns=$(_find_ns pod "$1")
-    if test -n "$ns";then
-        kubectl -n $ns logs "$@"
-    else
-        echo "can not find namespace for $1"
-        return
-    fi
-}
-
-_k_exec() {
-    local ns=$(_find_ns pod "$1")
-    if test -n "$ns";then
-        local pod="$1"
-        shift
-        kubectl -n $ns exec "$pod" -- "$@"
-    else
-        echo "can not find namespace for $1"
         return
     fi
 }
@@ -54,23 +35,29 @@ alias kgs='kubectl get svc --all-namespaces'
 alias kgd='kubectl get deployment --all-namespaces'
 alias kga='kubectl get all --all-namespaces'
 
+## delete
+alias kddp='_k_do delete pod'
+alias kdds='_k_do delete svc'
+alias kddd='_k_do delete deployment'
 
 ## describe
-alias kdp='_k_describe pod'
-alias kds='_k_describe svc'
-alias kdd='_k_describe deployment'
+alias kdp='_k_do describe pod'
+alias kds='_k_do describe svc'
+alias kdd='_k_do describe deployment'
 
 ## edit
-alias kep='_k_edit pod'
-alias kes='_k_edit svc'
-alias ked='_k_edit deployment'
+alias kep='_k_do edit pod'
+alias kes='_k_do edit svc'
+alias ked='_k_do edit deployment'
 
 ## log
-alias klp=_k_logs
+alias klp="_k_do logs pod"
 
 ## kubectl -n kube-system
 alias ks='kubectl -n kube-system'
 
 
-alias ke='_k_exec'
+alias ke='_k_do exec pod'
+alias kcf='kubectl create -f'
 
+alias cetcd="etcdctl --endpoint http://0.0.0.0:6666"
