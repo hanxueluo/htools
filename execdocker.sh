@@ -3,8 +3,12 @@
 tmpfile=/tmp/execdocker.txt
 
 exec_docker_shell() {
-    [ -z "$SHELL" ] && SHELL=bash
-    exec docker exec -it $1 $SHELL
+    local id=$1
+    shift
+    if test -z "$1";then
+        set -- "bash"
+    fi
+    exec docker exec -it $id "$@"
 }
 
 if [ "$1" = "" ];then
@@ -14,13 +18,15 @@ if [ "$1" = "" ];then
 fi
 
 if [ "$1" = "id" ];then
-    exec_docker_shell $2
+    shift
+    exec_docker_shell "$@"
     exit
 fi
 
 if echo "$1" | grep -q '^[0-9]\{1,2\}$' ;then
     id=$(cat $tmpfile  | awk -v line=$1 'NR==line { print $2}')
-    exec_docker_shell $id
+    shift
+    exec_docker_shell "$id" "$@"
     exit
 fi
 
@@ -31,6 +37,7 @@ if [ "$1" = "pod" ];then
 fi
 
 name=$1
+shift
 f=$(mktemp -u)
 docker ps -f "label=$label=$name" --format '{{.ID}} {{.Label "io.kubernetes.container.name"}}' | grep -v ' POD$' > $f
 
@@ -43,7 +50,7 @@ elif [ "$count" = "1" ] ;then
     read cid cname <$f
     echo $cid $cname
     rm -f $f
-    exec_docker_shell $cid
+    exec_docker_shell $cid "$@"
 elif [ "$count" = "2" ] ;then
     cat $f
     rm -f $f
