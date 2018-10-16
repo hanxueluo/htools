@@ -1,0 +1,94 @@
+#!/bin/bash
+
+run_cmd() {
+    local label=io.kubernetes.container.name
+    local name=contiv-netplugin
+    if which docker >/dev/null;then
+        local id=$(docker ps -f "label=$label=$name" --format '{{.ID}}')
+        docker exec -i $id "$@"
+    else
+        "$@"
+    fi
+}
+
+
+simple_df() {
+sed -e 's/recirc_id(0),//' \
+    -e 's/dp_hash(0),//' \
+    -e 's/skb_priority(0),//' \
+    -e 's/skb_mark(0),//' \
+    -e 's/ct_state.*,eth(/eth(/' \
+    -e 's/, packets:.* actions:/ :/' \
+    -e 's/src=\|dst=//g' \
+    -e 's/sip=\|tip=//g' \
+    -e 's/sha=\|tha=//g' \
+    -e 's/,tos=0[^)]*//' \
+    -e 's/eth_type(0x0806),arp/ar/g' \
+    -e 's/eth_type(0x0800),ipv4/v4/g' \
+    -e 's/eth_type(0x86dd),ipv6/v6/g' \
+    -e 's/eth_type(0x8100),vlan(vid=/vl(/g' \
+    -e 's/in_port/in/' \
+    -e 's/eth//g' \
+    -e 's/ipv/v/g' \
+    -e 's/udp/u/g' \
+    -e 's/tcp_flags//g' \
+    -e 's/tcp/t/g' \
+    -e 's/vlan//g' \
+    -e 's/\<syn\>/S/g' \
+    -e 's/\<ack\>/A/g' \
+    -e 's/\<fin\>/F/g' \
+    -e 's/\<psh\>/P/g' \
+    -e 's/\<rst\>/P/g' \
+    -e 's/userspace(pid=/us(/' \
+    -e 's/slow_path(controller)/crl/' \
+
+}
+
+hovs_port() {
+    run_cmd ovs-appctl dpif/show
+} 
+
+hovs_df() {
+    if [ "$1" = "-o" ];then
+        run_cmd ovs-dpctl dump-flows
+    else
+        run_cmd ovs-dpctl dump-flows | simple_df
+    fi
+}
+
+hovs_of() {
+    run_cmd ovs-ofctl -O Openflow13 dump-flows contivVlanBridge
+    return 0
+}
+
+hovs_mega() {
+    run_cmd ovs-appctl upcall/$1-megaflows
+}
+hovs_trace() {
+    local line=${1:-1}
+    local con=
+    if [ "$line" = - ];then
+        read con
+    else
+        con=$(sed -n ${line}p /tmp/hovs_df.tmp)
+    fi
+    local con=$(echo $con | sed -e "s/, packets:.*//" -e 's/ct_state.*,eth(/eth(/')
+    if [ "$con" ];then
+        run_cmd ovs-appctl ofproto/trace "$con"
+    fi
+    return 0
+}
+
+main() {
+    local op=$1
+    shift
+    if type -t hovs_$op >/dev/null;then
+        hovs_$op "$@" | tee /tmp/hovs_$op.tmp
+    else
+        echo "hovs_$op is not defined"
+        exit 1
+    fi
+
+}
+
+main "$@"
