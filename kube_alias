@@ -1,5 +1,6 @@
 #!/bin/bash
 
+KUBECTL_TMPFILE="/tmp/kubectl-hhl.tmpfile"
 _find_ns() {
     if test -n "$2";then
         kubectl get $1 --all-namespaces | awk -v p=$2 '{if ($2 == p) {print $1}}'
@@ -29,6 +30,28 @@ _k_do() {
     fi
 }
 
+_kddps() {
+    local tmpfile=$KUBECTL_TMPFILE
+    kubectl get pods --all-namespaces -o custom-columns=.:.metadata.name,.:.status.hostIP > $tmpfile
+    while test -n "$1"
+    do
+        grep -- "$1" $tmpfile >$tmpfile-tmp
+        /usr/bin/mv $tmpfile-tmp $tmpfile
+        shift
+    done
+
+    cat $tmpfile
+    echo " ** The above pods will be deleted **"
+    read -N 1 -p " ** press any 'y' to continue **  " r
+    echo ""
+    [ "$r" != y ] && return
+    while read pod other
+    do
+        _k_do delete pod $pod
+    done < $tmpfile
+
+}
+
 ## get 
 alias kgp='kubectl get pods --all-namespaces -o wide'
 alias kgs='kubectl get svc --all-namespaces'
@@ -36,6 +59,7 @@ alias kgd='kubectl get deployment --all-namespaces'
 alias kga='kubectl get all --all-namespaces'
 
 ## delete
+alias kddps='_kddps'
 alias kddp='_k_do delete pod'
 alias kdds='_k_do delete svc'
 alias kddd='_k_do delete deployment'
