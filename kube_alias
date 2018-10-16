@@ -84,4 +84,98 @@ alias ks='kubectl -n kube-system'
 alias ke='_k_do exec pod'
 alias kcf='kubectl create -f'
 
+
+############ contiv ETCD =================
 alias cetcd="etcdctl --endpoint http://0.0.0.0:6666"
+ETCDCTL="etcdctl --endpoint http://0.0.0.0:6666"
+_cetcd_ls() {
+    test -z "$1" && set -- obj oper state
+    
+    echo "================"
+    while test -n "$1"
+    do
+        $ETCDCTL ls -r /contiv.io/"$1"
+        shift
+        echo ""
+    done
+}
+
+CETCD_TMPFILE="/tmp/cetcdh-get.tmpfile"
+_cetcd_find_internal() {
+    local tmpfile=$CETCD_TMPFILE
+    _cetcd_ls > $tmpfile
+
+    while test -n "$1"
+    do
+        grep -- "$1" $tmpfile >$tmpfile-tmp
+        /usr/bin/mv $tmpfile-tmp $tmpfile
+        shift
+    done
+}
+
+_cetcd_find() {
+    echo "================"
+    _cetcd_find_internal "$@"
+    cat $CETCD_TMPFILE
+}
+
+_cetcd_get() {
+    local tmpfile=$CETCD_TMPFILE
+
+    confirm=1
+    format=0
+
+    while test -n "$1"
+    do
+        if [ "$1" = "-f" ];then
+            format=1
+        elif [ "$1" = "-y" ];then
+            confirm=0
+        else
+            break
+        fi
+        shift
+    done
+
+    _cetcd_find_internal "$@"
+
+    if [ "$confirm" = 1 ];then
+        cat $tmpfile
+        echo " ** The above keys will be displayed **"
+        read -N 1 -p " ** press any 'y' to continue **  " r
+        echo ""
+        [ "$r" != y ] && return
+    fi
+
+    echo "================"
+    while read line
+    do
+        echo "## $line ##"
+        if [ "$format" = 1 ];then
+            $ETCDCTL get $line | jq .
+        else
+            $ETCDCTL get $line
+        fi
+        echo ""
+    done <$tmpfile
+}
+
+_cetcd_main() {
+    if [ "$1" = l ];then
+        shift
+        _cetcd_ls "$@"
+    elif [ "$1" = g ];then
+        shift
+        _cetcd_get "$@"
+    elif [ "$1" = f ];then
+        shift
+        _cetcd_find "$@"
+    else
+        echo "  help: "
+        echo "        cetcdh l [state|oper|obj] ..."
+        echo "        cetcdh f [pattern] ..."
+        echo "        cetcdh g [-y] [-f] [pattern] ..."
+    fi
+}
+
+alias cetcdh="_cetcd_main"
