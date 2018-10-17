@@ -89,7 +89,7 @@ _k_get() {
     shift 2
     if test -n "$object";then
         _k_do get "$kind" "$object" "$@"
-    else
+    elif test -n "$kind";then
         kubectl get "$kind" --all-namespaces -o wide 2>&1| nl -v0 -s' ' -nln -w3 | tee $KUBECTL_GET_TMPFILE.$kind
         if [ "${_K_KIND_NO_NAMESPACE[$kind]}" = 1 ];then
             sed -i 's/ / default /' $KUBECTL_GET_TMPFILE.$kind
@@ -98,24 +98,27 @@ _k_get() {
 
 }
 
+
 ## get 
+alias kg='_k_get'
 alias kgp='_k_get pod'
 alias kgs='_k_get svc'
 alias kgd='_k_get deployment'
 alias kgn='_k_get node'
 alias kga='_k_get all'
 
+## describe
+alias kd='_k_do describe'
+alias kdp='_k_do describe pod'
+alias kds='_k_do describe svc'
+alias kdd='_k_do describe deployment'
+alias kdn='_k_do describe node'
+
 ## delete
 alias kddps='_kddps'
 alias kddp='_k_do delete pod'
 alias kdds='_k_do delete svc'
 alias kddd='_k_do delete deployment'
-
-## describe
-alias kdp='_k_do describe pod'
-alias kds='_k_do describe svc'
-alias kdd='_k_do describe deployment'
-alias kdn='_k_do describe node'
 
 ## edit
 alias kep='_k_do edit pod'
@@ -125,12 +128,11 @@ alias ked='_k_do edit deployment'
 ## log
 alias klp="_k_do logs pod"
 
-## kubectl -n kube-system
-alias ks='kubectl -n kube-system'
-
-
 alias ke='_k_do exec pod'
 alias kcf='kubectl create -f'
+
+## kubectl -n kube-system
+alias ks='kubectl -n kube-system'
 
 
 ############ contiv ETCD =================
