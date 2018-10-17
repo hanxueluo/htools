@@ -13,7 +13,13 @@ _k_do() {
     local object=$3
     shift 3
 
-    local ns=$(_find_ns "$kind" "$object")
+    local ns=
+    if [ "$kind" = node ];then
+        ns=default
+    else
+        ns=$(_find_ns "$kind" "$object")
+    fi
+
     if test -n "$ns";then
         if [ "$action" = logs ];then
             kind=
@@ -51,12 +57,24 @@ _kddps() {
     done < $tmpfile
 
 }
+_k_get() {
+    local kind=$1
+    local object=$2
+    shift 2
+    if test -n "$object";then
+        _k_do get "$kind" "$object" "$@"
+    else
+        kubectl get "$kind" --all-namespaces -o wide
+    fi
+
+}
 
 ## get 
-alias kgp='kubectl get pods --all-namespaces -o wide'
-alias kgs='kubectl get svc --all-namespaces'
-alias kgd='kubectl get deployment --all-namespaces'
-alias kga='kubectl get all --all-namespaces'
+alias kgp='_k_get pod'
+alias kgs='_k_get svc'
+alias kgd='_k_get deployment'
+alias kgn='_k_get node'
+alias kga='_k_get all'
 
 ## delete
 alias kddps='_kddps'
@@ -68,6 +86,7 @@ alias kddd='_k_do delete deployment'
 alias kdp='_k_do describe pod'
 alias kds='_k_do describe svc'
 alias kdd='_k_do describe deployment'
+alias kdn='_k_do describe node'
 
 ## edit
 alias kep='_k_do edit pod'
