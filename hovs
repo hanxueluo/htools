@@ -11,42 +11,81 @@ run_cmd() {
     fi
 }
 
+simple_bf() {
+    sed \
+        -e 's/\(.*priority=1 .*actions=goto_table:[0-9]\+\)$/\1 =======================/' \
+        -e 's/\(priority=[0-9][0-9]\),/\1 ,/' \
+        -e 's/n_packets=.*priority=/pr=/' \
+        -e 's/duration=[^,]*, //' \
+        -e 's/metadata=/md=/' \
+        -e 's/write_metadata/wmd/g' \
+        -e 's/goto_table/go/g' \
+        -e 's/set_field/sf/g' \
+        -e 's/CONTROLLER/crl/' \
+        -e 's/dl_src/ds/g' \
+        -e 's/dl_dst/dd/g' \
+        -e 's/nw_src\|ip_src/ns/g' \
+        -e 's/nw_dst\|ip_dst/nd/g' \
+        -e 's/tp_src\|tcp_src/ts/g' \
+        -e 's/tp_dst\|tcp_dst/td/g' 
+
+}
 
 simple_df() {
-sed -e 's/recirc_id(0),//' \
-    -e 's/dp_hash(0),//' \
-    -e 's/skb_priority(0),//' \
-    -e 's/skb_mark(0),//' \
-    -e 's/ct_state.*,eth(/eth(/' \
-    -e 's/, packets:.* actions:/ :/' \
-    -e 's/src=\|dst=//g' \
-    -e 's/sip=\|tip=//g' \
-    -e 's/sha=\|tha=//g' \
-    -e 's/,tos=0[^)]*//' \
-    -e 's/eth_type(0x0806),arp/ar/g' \
-    -e 's/eth_type(0x0800),ipv4/v4/g' \
-    -e 's/eth_type(0x86dd),ipv6/v6/g' \
-    -e 's/eth_type(0x8100),vlan(vid=/vl(/g' \
-    -e 's/in_port/in/' \
-    -e 's/eth//g' \
-    -e 's/ipv/v/g' \
-    -e 's/udp/u/g' \
-    -e 's/tcp_flags//g' \
-    -e 's/tcp/t/g' \
-    -e 's/vlan//g' \
-    -e 's/\<syn\>/S/g' \
-    -e 's/\<ack\>/A/g' \
-    -e 's/\<fin\>/F/g' \
-    -e 's/\<psh\>/P/g' \
-    -e 's/\<rst\>/P/g' \
-    -e 's/userspace(pid=/us(/' \
-    -e 's/slow_path(controller)/crl/' \
+    sed -e 's/recirc_id(0),//' \
+        -e 's/dp_hash(0),//' \
+        -e 's/skb_priority(0),//' \
+        -e 's/skb_mark(0),//' \
+        -e 's/ct_state.*,eth(/eth(/' \
+        -e 's/, packets:.* actions:/ :/' \
+        -e 's/src=\|dst=//g' \
+        -e 's/sip=\|tip=//g' \
+        -e 's/sha=\|tha=//g' \
+        -e 's/,tos=0[^)]*//' \
+        -e 's/eth_type(0x0806),arp/ar/g' \
+        -e 's/eth_type(0x0800),ipv4/v4/g' \
+        -e 's/eth_type(0x86dd),ipv6/v6/g' \
+        -e 's/eth_type(0x8100),vlan(vid=/vl(/g' \
+        -e 's/in_port/in/' \
+        -e 's/eth//g' \
+        -e 's/ipv/v/g' \
+        -e 's/udp/u/g' \
+        -e 's/tcp_flags//g' \
+        -e 's/tcp/t/g' \
+        -e 's/vlan//g' \
+        -e 's/\<syn\>/S/g' \
+        -e 's/\<ack\>/A/g' \
+        -e 's/\<fin\>/F/g' \
+        -e 's/\<psh\>/P/g' \
+        -e 's/\<rst\>/P/g' \
+        -e 's/userspace(pid=/us(/' \
+        -e 's/slow_path(controller)/crl/'
 
+}
+
+hovs_vs() {
+    run_cmd ovs-vsctl "$@"
+}
+
+hovs_app() {
+    run_cmd ovs-appctl "$@"
+}
+
+hovs_of() {
+    run_cmd ovs-ofctl "$@"
 }
 
 hovs_port() {
     run_cmd ovs-appctl dpif/show
 } 
+
+hovs_bf() {
+    if [ "$1" = "-o" ];then
+        run_cmd ovs-ofctl -O Openflow13 dump-flows contivVlanBridge
+    else
+        run_cmd ovs-ofctl -O Openflow13 dump-flows contivVlanBridge | simple_bf
+    fi
+}
 
 hovs_df() {
     if [ "$1" = "-o" ];then
@@ -56,14 +95,10 @@ hovs_df() {
     fi
 }
 
-hovs_of() {
-    run_cmd ovs-ofctl -O Openflow13 dump-flows contivVlanBridge
-    return 0
-}
-
 hovs_mega() {
     run_cmd ovs-appctl upcall/$1-megaflows
 }
+
 hovs_trace() {
     local line=${1:-1}
     local con=
