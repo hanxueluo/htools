@@ -1,9 +1,8 @@
 #!/bin/bash
-
 KUBECTL_TMPFILE="/tmp/hhl.kubectl_alias.tmpfile"
 KUBECTL_GET_TMPFILE="/tmp/hhl.kubectl_alias_get.tmpfile"
 
-declare -A _K_KIND_NO_NAMESPACE=( ["node"]=1 ["daemonset"]=1 )
+declare -A _K_KIND_NO_NAMESPACE=( ["node"]=1 ["nodes"]=1 ["no"]=1)
 
 _k_parse_object_line() {
     local kind=$1
@@ -44,6 +43,13 @@ _k_do() {
     fi
 
     read ns object < <(_find_ns "$kind" "$object")
+    if [ "$kind" = all ];then
+        if [[ "$kind" == "all" && "$object" == *"/"* ]];then
+            kind=${object%%/*}
+            kind=${kind%%.*}
+            object=${object#*/}
+        fi
+    fi
 
     if test -n "$ns";then
         if [ "$action" = logs ];then
@@ -84,9 +90,20 @@ _kddps() {
 }
 
 _k_get() {
-    local kind=$1
-    local object=$2
-    shift 2
+    local kind=
+    local object=
+
+    if [[ "$1" == *"/"* ]];then
+        kind=${1%%/*}
+        kind=${kind%%.*}
+        object=${1#*/}
+        shift 1
+    else
+        kind=$1
+        object=$2
+        shift 2
+    fi
+
     if test -n "$object";then
         _k_do get "$kind" "$object" "$@"
     elif test -n "$kind";then
@@ -96,6 +113,22 @@ _k_get() {
         fi
     fi
 
+}
+
+_k_describe() {
+    local kind=
+    local object=
+
+    if [[ "$1" == *"/"* ]];then
+        kind=${1%%.*}
+        object=${1#*/}
+        shift 1
+    else
+        kind=$1
+        object=$2
+        shift 2
+    fi
+    _k_do describe $kind $object "$@"
 }
 
 
@@ -108,11 +141,12 @@ alias kgn='_k_get node'
 alias kga='_k_get all'
 
 ## describe
-alias kd='_k_do describe'
-alias kdp='_k_do describe pod'
-alias kds='_k_do describe svc'
-alias kdd='_k_do describe deployment'
-alias kdn='_k_do describe node'
+alias kd='_k_describe'
+alias kdp='_k_describe pod'
+alias kds='_k_describe svc'
+alias kdd='_k_describe deployment'
+alias kdn='_k_describe node'
+alias kda='_k_describe all'
 
 ## delete
 alias kddps='_kddps'
