@@ -56,7 +56,10 @@ _k_do() {
             kind=
         elif [ "$action" = exec ];then
             kind=
-            set -- -- "$@"
+            if [ "$1" = "" ];then
+                set -- bash
+            fi
+            set -- -it -- "$@"
         fi
 
         echo kubectl -n $ns $action $kind $object $@
