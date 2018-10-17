@@ -38,6 +38,11 @@ _k_do() {
     local object=$3
     shift 3
 
+    if [ "$action" != get -a "$object" = "" ];then
+        _k_get $kind
+        return
+    fi
+
     read ns object < <(_find_ns "$kind" "$object")
 
     if test -n "$ns";then
