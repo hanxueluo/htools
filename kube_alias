@@ -1,10 +1,35 @@
 #!/bin/bash
 
-KUBECTL_TMPFILE="/tmp/kubectl-hhl.tmpfile"
-_find_ns() {
-    if test -n "$2";then
-        kubectl get $1 --all-namespaces | awk -v p=$2 '{if ($2 == p) {print $1}}'
+KUBECTL_TMPFILE="/tmp/hhl.kubectl_alias.tmpfile"
+KUBECTL_GET_TMPFILE="/tmp/hhl.kubectl_alias_get.tmpfile"
+
+declare -A _K_KIND_NO_NAMESPACE=( ["node"]=1 ["daemonset"]=1 )
+
+_k_parse_object_line() {
+    local kind=$1
+    local object=$2
+    if test -z "$object";then
+        return 1
+    elif echo "$object" |grep -q "^[0-9]\+$";then
+        awk -v i=$object '{if ($1 == i){print $2, $3}}' $KUBECTL_GET_TMPFILE.$kind 2>/dev/null
+    else
+        return 1
     fi
+}
+
+_find_ns() {
+    local ns=
+    local name=
+    if test -n "$2";then
+        read ns name < <(_k_parse_object_line $1 $2)
+        if test -z "$name";then
+            if [ "${_K_KIND_NO_NAMESPACE[$1]}" != 1 ];then
+                kubectl get $1 --all-namespaces | awk -v p=$2 '{if ($2 == p) {print $1,$2}}'
+                return
+            fi
+        fi
+    fi
+    echo "$ns" "$name"
 }
 
 _k_do() {
@@ -13,12 +38,7 @@ _k_do() {
     local object=$3
     shift 3
 
-    local ns=
-    if [ "$kind" = node ];then
-        ns=default
-    else
-        ns=$(_find_ns "$kind" "$object")
-    fi
+    read ns object < <(_find_ns "$kind" "$object")
 
     if test -n "$ns";then
         if [ "$action" = logs ];then
@@ -57,6 +77,7 @@ _kddps() {
     done < $tmpfile
 
 }
+
 _k_get() {
     local kind=$1
     local object=$2
@@ -64,7 +85,10 @@ _k_get() {
     if test -n "$object";then
         _k_do get "$kind" "$object" "$@"
     else
-        kubectl get "$kind" --all-namespaces -o wide
+        kubectl get "$kind" --all-namespaces -o wide 2>&1| nl -v0 -s' ' -nln -w3 | tee $KUBECTL_GET_TMPFILE.$kind
+        if [ "${_K_KIND_NO_NAMESPACE[$kind]}" = 1 ];then
+            sed -i 's/ / default /' $KUBECTL_GET_TMPFILE.$kind
+        fi
     fi
 
 }
