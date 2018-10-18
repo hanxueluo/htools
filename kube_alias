@@ -1,4 +1,5 @@
 #!/bin/bash
+
 KUBECTL_TMPFILE="/tmp/hhl.kubectl_alias.tmpfile"
 KUBECTL_GET_TMPFILE="/tmp/hhl.kubectl_alias_get.tmpfile"
 
@@ -35,7 +36,9 @@ _k_do() {
     local action=$1
     local kind=$2
     local object=$3
-    shift 3
+    shift
+    shift
+    shift
 
     if [ "$action" != get -a "$object" = "" ];then
         _k_get $kind
@@ -100,11 +103,12 @@ _k_get() {
         kind=${1%%/*}
         kind=${kind%%.*}
         object=${1#*/}
-        shift 1
+        shift
     else
         kind=$1
         object=$2
-        shift 2
+        shift
+        shift
     fi
 
     if test -n "$object";then
@@ -125,11 +129,12 @@ _k_describe() {
     if [[ "$1" == *"/"* ]];then
         kind=${1%%.*}
         object=${1#*/}
-        shift 1
+        shift
     else
         kind=$1
         object=$2
-        shift 2
+        shift
+        shift
     fi
     _k_do describe $kind $object "$@"
 }
