@@ -141,6 +141,7 @@ alias kgp='_k_get pod'
 alias kgs='_k_get svc'
 alias kgd='_k_get deployment'
 alias kgn='_k_get node'
+alias kgc='_k_get configmap'
 alias kga='_k_get all'
 
 ## describe
@@ -149,6 +150,7 @@ alias kdp='_k_describe pod'
 alias kds='_k_describe svc'
 alias kdd='_k_describe deployment'
 alias kdn='_k_describe node'
+alias kdc='_k_describe configmap'
 alias kda='_k_describe all'
 
 ## delete
