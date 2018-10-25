@@ -20,10 +20,10 @@ ns_exists() {
 }
 
 ns_list_net() {
-    printf "%s\t" $NS
+    printf "%s\t" ${NS#*-}
     {
-        ip netns exec $NS ip addr show eth0 | awk '{if ($1 == "inet" || $1 == "link/ether") {print $2}}'
         ip netns exec $NS ip route show default | awk '{print $3}'
+        ip netns exec $NS ip addr show eth0 | awk '{if ($1 == "inet" || $1 == "link/ether") {print $2}}'
     } | tr '\n' '\t'
     printf "\n"
 }
@@ -60,7 +60,27 @@ if [ "$op" = start ];then
         ovs-vsctl add-port $OVS_BR $port -- set interface $port external_ids:iface-id=$OVN_BR-$port
     fi
     if test -n "$OVN_BR";then
-        ovn-nbctl lsp-add $OVN_BR $OVN_BR-$port -- lsp-set-addresses $OVN_BR-$port $MAC -- lsp-set-port-security $OVN_BR-$port $MAC
+        ovn-nbctl lsp-add $OVN_BR $OVN_BR-$port -- lsp-set-addresses $OVN_BR-$port "$MAC $IP" -- lsp-set-port-security $OVN_BR-$port "$MAC $IP"
+    fi
+
+elif [ "$op" = reovn ];then
+    mkdir -p /etc/vvm/vvm/
+    file2=/etc/vvm/vvm/$file.conf
+    if test -r $file2;then
+        file=$file2
+    fi
+    source $file
+    NS=vvm-$NAME
+
+    if ! ns_exists;then
+        echo $NAME does not exist
+        exit 1
+    fi
+
+    port=veth-$NAME
+    if test -n "$OVN_BR";then
+        ovn-nbctl --if-exists lsp-del $OVN_BR-$port
+        ovn-nbctl lsp-add $OVN_BR $OVN_BR-$port -- lsp-set-addresses $OVN_BR-$port "$MAC $IP" -- lsp-set-port-security $OVN_BR-$port "$MAC $IP"
     fi
 
 elif [ "$op" = stop ];then
@@ -81,6 +101,12 @@ elif [ "$op" = stop ];then
 
     ovs-vsctl --if-exists del-port $port
 
+elif [ "$op" = restart ];then
+    $0 stop $file
+    echo "stopped"
+    $0 start $file
+    echo "started"
+
 elif [ "$op" = list ];then
     for ns in $(ip netns | sort |grep ^vvm- |awk '{print $1}')
     do
@@ -95,14 +121,20 @@ elif [ "$op" = conn ];then
         echo $NAME does not exist
         exit 1
     fi
-    rcfile=/tmp/vvm-rc-$NAME
-    cat > $rcfile <<EOF
+    shift
+    shift
+    if test -n "$1";then
+        exec ip netns exec $NS "$@"
+    else
+        rcfile=/tmp/vvm-rc-$NAME
+        cat > $rcfile <<EOF
 source /root/.bashrc
 export PS1="vvm@$NAME.\h:\w\$ "
 rm -f $rcfile
 EOF
-    cd /root/
-    exec ip netns exec $NS bash --rcfile $rcfile
+        cd /root/
+        exec ip netns exec $NS bash --rcfile $rcfile
+    fi
 elif [ "$op" = edit ];then
     mkdir -p /etc/vvm/vvm/
     file2=/etc/vvm/vvm/$file.conf
