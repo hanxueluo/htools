@@ -11,23 +11,51 @@ run_cmd() {
     fi
 }
 
+simple_bf_br_int() {
+    if [ "$br"  = "br-int" ];then
+        sed \
+        -e 's/\<metadata\>/dp/g' \
+        -e 's/reg10/flgs/g' \
+        -e 's/reg11/dn_z/g' \
+        -e 's/reg12/sn_z/g' \
+        -e 's/reg13/po_z/g' \
+        -e 's/reg14/inport/g' \
+        -e 's/reg15/ouport/g' \
+        -e 's/xxreg0\[64\.\.95\]/reg_ns/g' \
+        -e 's/xxreg0\[96\.\.127\]/reg_nd/g' \
+        -e 's/\<reg0/reg_nd/g' \
+        -e 's/\<reg3/reg3_ns/g' \
+        -e 's/\[\]//g' \
+
+    else
+        cat
+    fi
+}
+
 simple_bf() {
+    tr '[:upper:]' '[:lower:]' |
     sed \
         -e 's/\(.*priority=1 .*actions=goto_table:[0-9]\+\)$/\1 =======================/' \
         -e 's/\(priority=[0-9][0-9]\),/\1 ,/' \
         -e 's/n_packets=.*priority=/pr=/' \
         -e 's/duration=[^,]*, //' \
-        -e 's/metadata=/md=/' \
+        -e 's/nxm_nx_//g' \
         -e 's/write_metadata/wmd/g' \
         -e 's/goto_table/go/g' \
         -e 's/set_field/sf/g' \
-        -e 's/CONTROLLER/crl/' \
+        -e 's/controller/crl/' \
         -e 's/dl_src/ds/g' \
         -e 's/dl_dst/dd/g' \
         -e 's/nw_src\|ip_src/ns/g' \
         -e 's/nw_dst\|ip_dst/nd/g' \
         -e 's/tp_src\|tcp_src/ts/g' \
-        -e 's/tp_dst\|tcp_dst/td/g' 
+        -e 's/tp_dst\|tcp_dst/td/g' \
+        | simple_bf_br_int
+
+
+    #NXM_NX_TUN_METADATA0
+    #move:NXM_NX_TUN_ID[0..23]->OXM_OF_METADATA[0..23],move:NXM_NX_TUN_METADATA0[16..30]->NXM_NX_REG14[0..14],move:NXM_NX_TUN_METADATA0[0..15]->NXM_NX_REG15[0..15],resubmit(,33)
+
 
 }
 
@@ -80,10 +108,18 @@ hovs_port() {
 } 
 
 hovs_bf() {
+    BR=
+    for br in contivVlanBridge br-int
+    do
+        if ovs-vsctl br-exists $br;then
+            BR=$br
+        fi
+    done
+
     if [ "$1" = "-o" ];then
-        run_cmd ovs-ofctl -O Openflow13 dump-flows contivVlanBridge
+        run_cmd ovs-ofctl -O Openflow13 dump-flows $BR
     else
-        run_cmd ovs-ofctl -O Openflow13 dump-flows contivVlanBridge | simple_bf
+        run_cmd ovs-ofctl -O Openflow13 dump-flows $BR | simple_bf $BR
     fi
 }
 
@@ -109,7 +145,7 @@ hovs_trace() {
     fi
     local con=$(echo $con | sed -e "s/, packets:.*//" -e 's/ct_state.*,eth(/eth(/')
     if [ "$con" ];then
-        run_cmd ovs-appctl ofproto/trace "$con"
+        run_cmd ovs-appctl ofproto/trace "$con" | simple_bf
     fi
     return 0
 }
