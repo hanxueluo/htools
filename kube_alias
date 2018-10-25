@@ -168,6 +168,7 @@ alias kddd='_k_do delete deployment'
 alias kep='_k_do edit pod'
 alias kes='_k_do edit svc'
 alias ked='_k_do edit deployment'
+alias kec='_k_do edit configmap'
 
 ## log
 alias klp="_k_do logs pod"
