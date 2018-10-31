@@ -139,6 +139,17 @@ _k_describe() {
     _k_do describe $kind $object "$@"
 }
 
+_k_scale() {
+    local kind="$1"
+    local object="$2"
+    local num="${3:-0}"
+    shift
+    shift
+    shift
+    _k_do scale "$kind" "$object" --replicas="$num" "$@"
+
+}
+
 
 ## get 
 alias kg='_k_get'
@@ -178,6 +189,7 @@ alias kcf='kubectl create -f'
 
 ## kubectl -n kube-system
 alias ks='kubectl -n kube-system'
+alias ksd='_k_scale deployment'
 
 
 ############ contiv ETCD =================
