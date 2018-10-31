@@ -47,7 +47,12 @@ if [ "$op" = start ];then
 
     ns_run ip link set peer-$NAME name eth0
     ns_run ip link set eth0 address $MAC
-    ns_run ip addr add dev eth0 $IP
+    if [ "$IP" = dhcp ];then
+        IP=
+        echo ns_run ip addr add dev eth0 $IP
+    else
+        ns_run ip addr add dev eth0 $IP
+    fi
     ns_run ip link set eth0 up
     ns_run ip link set lo up
     test -z "$GW" || ns_run ip route add default via $GW
@@ -79,6 +84,9 @@ elif [ "$op" = reovn ];then
 
     port=veth-$NAME
     if test -n "$OVN_BR";then
+        if [ "$IP" = dhcp ];then
+            IP=
+        fi
         ovn-nbctl --if-exists lsp-del $OVN_BR-$port
         ovn-nbctl lsp-add $OVN_BR $OVN_BR-$port -- lsp-set-addresses $OVN_BR-$port "$MAC $IP" -- lsp-set-port-security $OVN_BR-$port "$MAC $IP"
     fi
@@ -140,9 +148,9 @@ elif [ "$op" = edit ];then
     file2=/etc/vvm/vvm/$file.conf
     if ! test -f $file2;then
         cat 1>$file2 <<EOF
-NAME=vm1
+NAME=$file
 MAC=0c:dd:00:00:00:00
-IP=dhchp
+IP=dhcp
 IP=172.20.70.2/24
 GW=172.20.70.1
 OVS_BR=
