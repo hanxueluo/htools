@@ -141,5 +141,15 @@ case "$op" in
         insert_for_one_chain $1 $2;;
     stat)
         statistics_show "$@";;
+    *)
+        cat <<EOF
+        $0 del|ia|it|ic|stat
+            ia                  insert for all tables
+            it [table]          insert for one table
+            ic [table] [chain]  insert for one table chain
+            del  [table] ..     delete from tables
+            stat [table] ..     show statistics of tables
+EOF
+        ;;
 esac
 
