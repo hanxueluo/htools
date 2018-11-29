@@ -45,6 +45,12 @@ _k_do() {
         return
     fi
 
+    if [ "$object" = "." ];then
+        echo kubectl $action $kind $@ --all-namespaces
+        kubectl $action $kind $@ --all-namespaces
+        return
+    fi
+
     read ns object < <(_find_ns "$kind" "$object")
     if [ "$kind" = all ];then
         if [[ "$kind" == "all" && "$object" == *"/"* ]];then
@@ -158,6 +164,7 @@ alias kgs='_k_get svc'
 alias kgd='_k_get deployment'
 alias kgn='_k_get node'
 alias kgc='_k_get configmap'
+alias kgnw='_k_get net-attach-def'
 alias kga='_k_get all'
 
 ## describe
@@ -167,6 +174,7 @@ alias kds='_k_describe svc'
 alias kdd='_k_describe deployment'
 alias kdn='_k_describe node'
 alias kdc='_k_describe configmap'
+alias kdnw='_k_describe net-attach-def'
 alias kda='_k_describe all'
 
 ## delete
@@ -176,16 +184,19 @@ alias kdds='_k_do delete svc'
 alias kddd='_k_do delete deployment'
 
 ## edit
+alias ke='_k_do edit'
 alias kep='_k_do edit pod'
 alias kes='_k_do edit svc'
 alias ked='_k_do edit deployment'
+alias kenw='_k_do edit net-attach-def'
 alias kec='_k_do edit configmap'
 
 ## log
 alias klp="_k_do logs pod"
 
-alias ke='_k_do exec pod'
+alias kx='_k_do exec pod'
 alias kcf='kubectl create -f'
+alias kdf='kubectl delete -f'
 
 ## kubectl -n kube-system
 alias ks='kubectl -n kube-system'
