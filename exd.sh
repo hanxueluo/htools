@@ -4,6 +4,37 @@ tmpfile=/tmp/execdocker.txt
 
 declare  -A POD_IP
 
+
+f1() {
+#id', name', ip, pname , host
+kubectl get pods --all-namespaces -o=custom-columns=ID:.status.containerStatuses[*].containerID,CNAME:.status.containerStatuses[*].name,IP:.status.podIP,NAME:.metadata.name,NodeName:.spec.nodeName |
+sed -e 's/docker:..\(\w\{12\}\)\w*/\1/g' \
+    -e 's/^\<ID\> \{61\}/ID/'
+}
+
+f2() {
+    let line=0
+    while read a b c d e f
+    do
+        if [ "$a" == ID ];then
+            continue
+        fi
+        ((line++))
+        declare -a aa=(${a//,/ })
+        declare -a bb=(${b//,/ })
+
+        let i=0
+        while test -n "${aa[$i]}"
+        do
+            #printf "%3d %s %15s  %25s [%3d] %-25s\n" $i $id ${ip:--} $pod $i $c
+            printf "%3d %s %15s  %25s [%3d] %-25s %s\n" $line ${aa[$i]} ${bb[$i]} $c $line $d $e
+            #$e $f
+            ((i++))
+        done
+    done
+}
+#f1 | f2 ; exit
+
 get_pod_ip() {
     while read pod ip
     do
