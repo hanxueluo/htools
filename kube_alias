@@ -209,8 +209,11 @@ alias kec='_k_do edit configmap'
 alias klp="_k_do logs pod"
 
 alias kx='_k_do exec pod'
-alias kcf='kubectl create -f'
-alias kdf='kubectl delete -f'
+alias kfa="kubectl apply -f"
+alias kfc="kubectl create -f"
+alias kfd="kubectl delete -f"
+alias kfp="kubectl patch -f"
+
 
 ## kubectl -n kube-system
 alias ks='kubectl -n kube-system'
