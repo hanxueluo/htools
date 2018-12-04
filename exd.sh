@@ -11,6 +11,10 @@ get_pod_ip() {
     done < <(kubectl get pods --all-namespaces -o wide | awk '{print $2, $7}')
 }
 
+get_container_pid() {
+    docker inspect -f '{{.State.Pid}}' $1
+}
+
 get_docker_pod() {
     let i=1
     while read id pod c
@@ -19,7 +23,8 @@ get_docker_pod() {
             continue
         fi
         ip=${POD_IP[$pod]}
-        printf "%3d %s %15s  %25s [%3d] %-25s\n" $i $id ${ip:--} $pod $i $c 
+        pid=$(get_container_pid $id)
+        printf "%3d %s %6d %15s  %25s [%3d] %-25s\n" $i $id $pid ${ip:--} $pod $i $c
         ((i++))
     done < <(docker ps --format '{{.ID}}\t\t{{.Label "io.kubernetes.pod.name"}}\t\t{{.Label "io.kubernetes.container.name"}}')
 }
@@ -31,6 +36,17 @@ exec_docker_shell() {
         set -- "bash"
     fi
     exec docker exec -it $id "$@"
+}
+
+enter_ns() {
+    local line=${1#p}
+    local pid=$(cat $tmpfile  | awk -v line=$line 'NR==line { print $3}')
+    shift
+    if test -z "$1";then
+        set -- "bash"
+    fi
+    nsenter -t $pid -n  "$@"
+    exit
 }
 
 exe_by_index() {
@@ -81,6 +97,9 @@ fi
 
 if echo "$1" | grep -q '^[0-9]\{1,2\}$' ;then
     exe_by_index "$@"
+    exit
+elif echo "$1" | grep -q '^p[0-9]\{1,2\}$' ;then
+    enter_ns "$@"
     exit
 elif [ "$1" = "id" ];then
     shift
