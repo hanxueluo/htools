@@ -45,9 +45,19 @@ _k_do() {
         return
     fi
 
-    if [ "$object" = "." ];then
+    if [[ "$object" == "/"* || "$object" == "." ]];then
         echo kubectl $action $kind $@ --all-namespaces
         kubectl $action $kind $@ --all-namespaces
+        return
+    fi
+
+    if [[ "$object" == "."* ]];then
+        ns=${object#.}
+        if [ "$ns" = ".ks" ];then
+            ns=kube-system
+        fi
+        echo kubectl -n $ns $action $kind $@
+        kubectl -n $ns $action $kind $@
         return
     fi
 
@@ -80,8 +90,7 @@ _k_do() {
 }
 
 _kddps() {
-    local tmpfile=$KUBECTL_TMPFILE
-    kubectl get pods --all-namespaces -o custom-columns=.:.metadata.name,.:.status.hostIP > $tmpfile
+    _k_get pod . -o custom-columns=.:.metadata.name,.:.status.hostIP > $tmpfile
     while test -n "$1"
     do
         grep -- "$1" $tmpfile >$tmpfile-tmp
@@ -117,10 +126,15 @@ _k_get() {
         shift
     fi
 
+    pattern=.
+    if [[ "$object" = "/"* ]];then
+        pattern=${object##/}
+        object=
+    fi
     if test -n "$object";then
         _k_do get "$kind" "$object" "$@"
     elif test -n "$kind";then
-        kubectl get "$kind" --all-namespaces -o wide 2>&1| nl -v0 -s' ' -nln -w3 | tee $KUBECTL_GET_TMPFILE.$kind
+        kubectl get "$kind" --all-namespaces -o wide 2>&1| grep "$pattern"| nl -v0 -s' ' -nln -w3 | tee $KUBECTL_GET_TMPFILE.$kind
         if [ "${_K_KIND_NO_NAMESPACE[$kind]}" = 1 ];then
             sed -i 's/ / default /' $KUBECTL_GET_TMPFILE.$kind
         fi
