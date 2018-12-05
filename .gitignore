@@ -103,3 +103,9 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# binary
+etcdctl
+ipvsadm
+netctl
+ovn-trace

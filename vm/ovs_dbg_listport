@@ -1,0 +1,14 @@
+#!/bin/bash
+
+
+for vnet in $(ls -d /sys/class/net/vn*)
+do
+    read address < $vnet/address
+    address2=$(echo $address | sed 's/^fe/52/')
+    filename=$(basename $(grep -lF "$address2" /var/run/libvirt/qemu/*.xml))
+
+    printf "%-7s %-15s  %s\n" $(basename $vnet) $address2 $filename
+    #echo $vnet:$address-$address2
+done
+
+exit
