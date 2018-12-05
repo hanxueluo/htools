@@ -1,6 +1,37 @@
 #!/bin/bash
 
 cni=$(basename $0)
+
+is_file() {
+    test -f $1 && ! test -L $1
+}
+
+if [ "$1" = "install" ];then
+    dst=$2
+    if is_file /opt/cni/bin/$dst && ! test -e /opt/cni/bin/${dst}0;then
+        cp -a $0 /opt/cni/bin/
+        mv /opt/cni/bin/$dst /opt/cni/bin/${dst}0
+        ln -s /opt/cni/bin/$cni /opt/cni/bin/$dst
+    else
+        echo /opt/cni/bin/$dst is not a file or ${dst}0 already exists
+    fi
+    exit
+elif [ "$1" = "uninstall" ];then
+    dst=$2
+    if test -L /opt/cni/bin/$dst && is_file /opt/cni/bin/${dst}0;then
+        rm -f /opt/cni/bin/$dst
+        mv /opt/cni/bin/${dst}0 /opt/cni/bin/${dst}
+    else
+        echo /opt/cni/bin/$dst is a file or ${dst}0 does not exist
+    fi
+    exit
+fi
+
+
+
+
+
+cni=$(basename $0)
 if test -L $0;then
     cni=${cni}0
 elif [[ "$cni" == "log-"* ]];then
