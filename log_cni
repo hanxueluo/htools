@@ -1,0 +1,36 @@
+#!/bin/bash
+
+cni=$(basename $0)
+if test -L $0;then
+    cni=${cni}0
+elif [[ "$cni" == "log-"* ]];then
+    cni=${cni#log-}
+else
+    echo "Error: no delegate $0: $@" >> /tmp/log_cni.log
+    exit 1
+fi
+
+cni=/opt/cni/bin/$cni
+
+stdin=
+{
+    echo "=========S=$(date)= $cni $@ ==="
+    echo "env:"
+    export |grep CNI_ 
+    stdin=$(timeout 2 cat)
+    echo "stdin:"
+    echo "$stdin"
+
+} >>/tmp/log_cni.log
+
+res=$(echo "$stdin" | $cni "$@")
+code=$?
+echo "$res"
+
+{
+    echo "res: $code, $res"
+    echo "=========E== $cni $@ ==="
+    echo ""
+
+} >>/tmp/log_cni.log
+exit $code
