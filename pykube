@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+# TODO LIST:
+# 1. better handle for -o
+# 2. kgn display ip
+# 3. do not do all if no match
+# 4. no line number for 
+# 5. bug: kgp /-0 -o yaml
+
 import os
 import subprocess
 import sys
@@ -113,7 +120,8 @@ class Executor(object):
 
         cmd = " ".join(args)
         print >> sys.stderr, "# ", cmd
-        code, out, err = Utility.execute(cmd, action in ["edit", "exec", "logs"])
+        use_stdout = action in ["edit", "exec", "logs"] or (action == "get" and " -w " in cmd + " ")
+        code, out, err = Utility.execute(cmd, use_stdout)
         if code != 0:
             print code, err
             sys.exit(1)
