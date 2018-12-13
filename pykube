@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 
 # TODO LIST:
-# 1. better handle for -o
-# 2. kgn display ip
-# 3. do not do all if no match
-# 4. no line number for 
-# 5. bug: kgp /-0 -o yaml
+# . do not do all if no match
 
 import os
 import subprocess
@@ -20,6 +16,13 @@ if not os.path.isdir(tmpdir):
 
 def has_no_ns(kind):
     return kind in ["node"]
+
+def print_to_stderr(message, newilne=True):
+    print >> sys.stderr, "# ", message,
+    if newilne:
+        print >> sys.stderr, ""
+    sys.stderr.flush()
+
 
 class Utility:
     @staticmethod
@@ -42,12 +45,13 @@ class Utility:
 
     @staticmethod
     def execute(cmd, stdio=False):
+        shell = isinstance(cmd, str)
         if stdio:
-            p = subprocess.Popen(cmd, shell=True, close_fds=True)
+            p = subprocess.Popen(cmd, shell=shell, close_fds=True)
             stdout, stderr = p.communicate()
             stdout = ""
         else:
-            p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True)
+            p = subprocess.Popen(cmd, shell=shell, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True)
             stdout, stderr = p.communicate()
 	#if p.returncode != 0:
 	#    logging.error('Failed to execute cmd: %s :%s', cmd, stderr.strip())
@@ -71,6 +75,61 @@ class Resource(object):
         super(self, Resource).__init__()
         self.name = name
 
+class KubeOption(object):
+    def __init__(self, raw):
+        super(KubeOption, self).__init__()
+        self.raw = raw
+
+    def _get_option(self, arg):
+        i, _next = -1, None
+        try:
+            i = self.raw.index(arg)
+            _next = self.raw[i+1]
+            if _next.startswith("-"):
+                _next = None
+        except:
+            pass
+        if i < 0:
+            for ii, a in enumerate(self.raw):
+                if a.startswith(arg):
+                    i = ii
+                    _next = a[len(arg):].lstrip("=")
+                    break
+        return i, _next
+
+    def get_output(self):
+        _, output = self._get_option("-o")
+        return  "" if output is None else output
+
+    def is_list(self, output=None):
+        if output is None:
+            output = self.get_output()
+        return not (output.startswith("yaml") or output.startswith("json") or output.startswith("name"))
+
+    def has(self, arg, arg2=None):
+        i, b = self._get_option(arg)
+        return i >= 0 and b == arg2
+
+    def get(self, arg):
+        _, b = self._get_option(arg)
+        return b
+
+    def reset_arg(self, arg, arg2=None):
+        raw = self.raw[:]
+        i, _next = self._get_option(arg)
+        if _next is not None:
+            del raw[i+1]
+            del raw[i]
+        elif i>= 0:
+            del raw[i]
+
+        raw.append( arg if arg2 is None else arg + arg2 )
+        return KubeOption(raw)
+
+    def try_set_wide_for_pod(self, kind):
+        if kind == "pod" and not self.get("-o"):
+            return self.reset_arg("-o", "wide")
+        return KubeOption(self.raw)
 
 class Executor(object):
     def __init__(self, action, kind, resource="", others=""):
@@ -78,7 +137,7 @@ class Executor(object):
         self.action = action
         self.kind = kind
         self.resource = resource
-        self.others = others
+        self.others = others.split() if others is str else others
 
         self.kind, self.resource = self._reset_kind_resource(self.kind, self.resource)
 
@@ -93,7 +152,7 @@ class Executor(object):
             resource = ss[1]
         return kind, resource
 
-    def kube_execute(self, namespace, action, kind, resource, others):
+    def kube_execute(self, namespace, action, kind, resource, option):
         if namespace == "":
             namespace = "--all-namespaces"
         elif namespace and not namespace.startswith("-"):
@@ -105,45 +164,65 @@ class Executor(object):
             kind = ""
         elif action == "exec":
             kind = ""
-            if others == "":
-                others = "bash"
-            others = "-it -- " + others
+            if not option.raw:
+                option.raw = ["bash"]
+            option.raw = ["-it", "--"] + option.raw
+        elif action == "get":
+            if kind == "pod":
+                option = option.try_set_wide_for_pod(kind)
 
-        args = [
+        args = " ".join([
                 "kubectl",
                 action,
                 namespace,
                 kind,
-                resource,
-                others,
-                ]
+                resource
+                ]).split() + option.raw
 
-        cmd = " ".join(args)
-        print >> sys.stderr, "# ", cmd
-        use_stdout = action in ["edit", "exec", "logs"] or (action == "get" and " -w " in cmd + " ")
-        code, out, err = Utility.execute(cmd, use_stdout)
+        print_to_stderr(" ".join(args))
+        use_stdout = action in ["edit", "exec", "logs"] or (action == "get" and option.has("-w"))
+        code, out, err = Utility.execute(args, use_stdout)
+
         if code != 0:
-            print code, err
+            print_to_stderr("%s %s" % (code, err))
             sys.exit(1)
         if err:
-            print err.strip()
-        return out
+            print_to_stderr(err.strip())
 
-    def is_list_format(self, others):
-        while "-o " in others:
-            others = others.replace("-o ", "-o")
-        return not ("-oyaml" in others or "-ojson" in others)
+        lines = out.splitlines()
+        if code == 0 and out and action == "get" and kind == "node" and option.is_list():
+            lines = self._patch_ndoe_ip(lines)
+
+        return lines
+
+    def _patch_ndoe_ip(self, lines):
+        if not lines:
+            return lines
+
+        cmd = "kubectl get node -o=custom-columns=NAME:.metadata.name,ADDRESS:.status.addresses[0].address"
+        out = Utility.execute(cmd)[1]
+        ips = {}
+        for l in out.splitlines():
+            k, v = l.split()
+            ips[k] = v
+        lines2 = []
+        for l in lines:
+            n = l.split()[0]
+            line = l + "   " + ips.get(n, "")
+            lines2.append(line)
+        lines = lines2
+        return lines
 
     def execute(self):
         _pattern = ""
         action = self.action
         kind = self.kind
         resource = ""
-        others = self.others
+        option = KubeOption(self.others)
 
-        #import pdb;pdb.set_trace()
         # 1. expand namespace and resource
-        many = False
+        #import pdb;pdb.set_trace()
+        hasfilter = False
         if self.resource.isdigit():
             lines = Utility.read_file(KUBECTL_GET_TMPFILE + "." + kind).splitlines()
             items = self.extract_namespace_resource(lines, [self.resource])
@@ -153,55 +232,87 @@ class Executor(object):
             else:
                 namespace = ""
                 resource = ""
-                many = True
+                hasfilter = True
             kind, resource = self._reset_kind_resource(kind, resource)
         elif self.resource.startswith("."):
             namespace = self.resource[1:]
             if namespace.startswith("."):
                 namespace = {".ks": "kube-system", ".d": "default"}.get(namespace, namespace)
-            many = True
+            hasfilter = True
         elif self.resource.startswith("/"):
             _pattern = self.resource[1:]
             namespace = ""
-            many = True
+            hasfilter = True
         else:
             resource = self.resource
-            namespace = self.extract_ns_by_name(self.kube_execute("", "get", kind, "", "").splitlines(), 1, resource)
+            namespace = self.extract_ns_by_name(self.kube_execute("", "get", kind, "", ""), 1, resource)
 
-        if action == "get" or many or _pattern:
-            result = self.kube_execute(namespace, "get", kind, resource, "-o wide" if not others and kind == "pod" else others)
-            lines = self.output_result(result, namespace, kind, _pattern, many and self.is_list_format(others))
-            if action == "get" or self.resource == ".":
+        # 2. first call
+        lines = None
+        if action == "get":
+            op = option
+            if _pattern:
+                op = op.reset_arg("-o", "wide")
+
+            lines = self.kube_execute(namespace, "get", kind, resource, op)
+            if op.is_list():
+                lines = self.format_namespace(lines, kind, namespace)
+            lines = self.format_by_pattern(lines, _pattern)
+
+            if not _pattern or option.is_list():
+                self.output_result(lines, kind, op.is_list() and resource == "")
                 return
+        elif hasfilter:
+            lines = self.kube_execute(namespace, "get", kind, resource, option.reset_arg("-o", "wide"))
+            lines = self.format_namespace(lines, kind, namespace)
+            lines = self.format_by_pattern(lines, _pattern)
 
+        # 3. second call
+        if lines is not None:
+            # TODO different namespaces
             namespace, resources = self.extract_namespace_resource_all(lines)
             resource = " ".join(resources)
 
-        # TODO different namespaces
+        if not resource and not option.raw:
+            action = "get"
 
-        if " " in resource or action in ["delete"]:
-            if not self.confirm_before_do("\nAre you sure to %s %s %s ?(y/n)" % (action, kind, resource)):
-                print "Aborted."
+        if action in ["delete", "edit"] and " " in resource:
+            if not self.confirm_before_do("\nAre you sure to %s %s %s? (y/n) " % (action, kind, "\n\t" + resource.replace(" ", "\n\t") + "\n")):
+                print_to_stderr("Aborted.")
                 return
 
-        result = self.kube_execute(namespace, action, kind, resource, others)
-        print result
+        lines = self.kube_execute(namespace, action, kind, resource, KubeOption(self.others))
+        print "\n".join(lines)
 
-    def output_result(self, result, namespace, kind, pattern, line_number):
-        lines = result.splitlines()
+    def format_namespace(self, lines, kind, namespace):
+        if has_no_ns(kind):
+            namespace = "*"
+        if namespace:
+            formtter = "%%-%ds %%s" % max(len(namespace), 2)
+            lines2 = []
+            for l in lines:
+                if l.startswith("NAME "):
+                    line = formtter % ("NS", l)
+                else:
+                    line = formtter % (namespace, l)
+                lines2.append(line)
+            lines = lines2
+        return lines
+
+    def format_by_pattern(self, lines, pattern):
         if pattern:
             lines = self.filter_by_pattern(lines, pattern)
-        if line_number:
-            prefix = ". " if has_no_ns(kind) else ""
-            if namespace:
-                prefix = namespace + " " + prefix
-            lines = self.add_line_number(lines, prefix)
+        return lines
+
+    def output_result(self, lines, kind, tofile):
+        if tofile:
+            lines = self.add_line_number(lines, "")
 
         result = "\n".join(lines)
-        print result
 
-        if line_number:
+        if tofile:
             Utility.write_file(KUBECTL_GET_TMPFILE + "." + kind, result + "\n")
+        print result
         return lines
 
     def filter_by_pattern(self, lines, pattern):
@@ -213,7 +324,11 @@ class Executor(object):
         return lines2
 
     def confirm_before_do(self, message):
-        r = raw_input(message)
+        print_to_stderr(message, False)
+        try:
+            r = raw_input()
+        except:
+            r = "n"
         return r.strip().lower() in ["y", "yes"]
 
     def extract_namespace_resource_all(self, lines):
@@ -221,8 +336,8 @@ class Executor(object):
         resources = []
         for line in lines[1:]:
             items = line.split()
-            namespace = items[1]
-            resources.append(items[2])
+            namespace = items[0]
+            resources.append(items[1])
         return namespace, resources
 
     def extract_ns_by_name(self, lines, column, name):
@@ -277,7 +392,6 @@ def main(argv):
     action = "get"
     kind = ""
     resource = "."
-    others = ""
 
     argv = argv[:]
     argv.reverse()
@@ -288,8 +402,7 @@ def main(argv):
     if argv and argv[-1][0] != "-":
         resource = argv.pop()
     argv.reverse()
-    others = " ".join(argv)
-    Executor(action, kind, resource, others).execute()
+    Executor(action, kind, resource, argv).execute()
 
 main(sys.argv[1:])
 
