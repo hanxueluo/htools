@@ -13,7 +13,7 @@ else
     KEY=/etc/kubernetes/pki/apiserver-etcd-client.key
 fi
 
-if which $BIN >/dev/null;then
+if which $BIN >/dev/null 2>/dev/null;then
     :
 else
     BIN=etcdctl

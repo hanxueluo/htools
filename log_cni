@@ -47,7 +47,7 @@ stdin=
 {
     echo "=========S=$(date)= $cni $@ ==="
     echo "env:"
-    export |grep CNI_ 
+    printenv |grep CNI_ |sort
     stdin=$(timeout 2 cat)
     echo "stdin:"
     echo "$stdin"

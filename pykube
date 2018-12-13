@@ -184,10 +184,10 @@ class Executor(object):
         code, out, err = Utility.execute(args, use_stdout)
 
         if code != 0:
-            print_to_stderr("%s %s" % (code, err))
+            print_to_stderr("cmd: %s, code: %s, err: %s" % (args, code, err))
             sys.exit(1)
         if err:
-            print_to_stderr(err.strip())
+            print_to_stderr("cmd %s: error:  %s" % (args, err))
 
         lines = out.splitlines()
         if code == 0 and out and action == "get" and kind == "node" and option.is_list():
@@ -245,7 +245,7 @@ class Executor(object):
             hasfilter = True
         else:
             resource = self.resource
-            namespace = self.extract_ns_by_name(self.kube_execute("", "get", kind, "", ""), 1, resource)
+            namespace = self.extract_ns_by_name(self.kube_execute("", "get", kind, "", KubeOption([])), 1, resource)
 
         # 2. first call
         lines = None

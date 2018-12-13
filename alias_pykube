@@ -75,6 +75,7 @@ alias kx="_k_do exec pod"
 alias kfa="kubectl apply -f"
 alias kfc="kubectl create -f"
 alias kfd="kubectl delete -f"
+alias kfp="kubectl patch -f"
 
 ## kubectl -n kube-system
 alias ks="kubectl -n kube-system"
