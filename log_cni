@@ -6,7 +6,10 @@ is_file() {
     test -f $1 && ! test -L $1
 }
 
-if [ "$1" = "install" ];then
+if [ "$1" = "ls" ];then
+    ls /opt/cni/bin/
+    exit 0
+elif [ "$1" = "install" ];then
     dst=$2
     if is_file /opt/cni/bin/$dst && ! test -e /opt/cni/bin/${dst}0;then
         cp -a $0 /opt/cni/bin/
