@@ -38,6 +38,18 @@ alias kgc="_k_do get configmap"
 alias kgnw="_k_do get net-attach-def"
 alias kga="_k_do get all"
 
+## get as yaml
+alias ky="_k_do get"
+alias kyp="_k_do yaml pod"
+alias kys="_k_do yaml svc"
+alias kyd="_k_do yaml deployment"
+alias kyn="_k_do yaml node"
+alias kyi="_k_do yaml ingress"
+alias kyr="_k_do yaml release"
+alias kyc="_k_do yaml configmap"
+alias kynw="_k_do yaml net-attach-def"
+alias kya="_k_do yaml all"
+
 ## describe
 alias kd="_k_do describe"
 alias kdp="_k_do describe pod"

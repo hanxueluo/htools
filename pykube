@@ -247,6 +247,11 @@ class Executor(object):
             resource = self.resource
             namespace = self.extract_ns_by_name(self.kube_execute("", "get", kind, "", KubeOption([])), 1, resource)
 
+        if action == "yaml":
+            action = "get"
+            option = option.reset_arg("-o", "yaml")
+
+
         # 2. first call
         lines = None
         if action == "get":
