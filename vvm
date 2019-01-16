@@ -56,7 +56,7 @@ if [ "$op" = start ];then
     ns_run ip link set eth0 up
     ns_run ip link set lo up
     test -z "$GW" || ns_run ip route add default via $GW
-    ip link set veth-$NAME address $MAC
+    ip link set veth-$NAME address $(echo $MAC | sed 's/^..:/fe:/')
     ip link set veth-$NAME up
 
 
@@ -66,6 +66,9 @@ if [ "$op" = start ];then
     fi
     if test -n "$OVN_BR";then
         ovn-nbctl lsp-add $OVN_BR $OVN_BR-$port -- lsp-set-addresses $OVN_BR-$port "$MAC $IP" -- lsp-set-port-security $OVN_BR-$port "$MAC $IP"
+    fi
+    if test -n "$LIN_BR";then
+        ip link set dev $port master $LIN_BR
     fi
 
 elif [ "$op" = reovn ];then
@@ -102,12 +105,16 @@ elif [ "$op" = stop ];then
     ip netns del $NS
 
     port=veth-$NAME
-    iface_id=$(ovs-vsctl --if-exists get int $port external_ids:iface-id | tr -d '"')
-    if [ "$iface_id" ];then
-        ovn-nbctl --if-exists lsp-del $iface_id
+    if which ovs-vsctl >/dev/null 2>/dev/null;then
+        iface_id=$(ovs-vsctl --if-exists get int $port external_ids:iface-id | tr -d '"')
+        if [ "$iface_id" ];then
+            ovn-nbctl --if-exists lsp-del $iface_id
+        fi
+
+        ovs-vsctl --if-exists del-port $port
     fi
 
-    ovs-vsctl --if-exists del-port $port
+    ip link set dev $port nomaster 2>/dev/null
 
 elif [ "$op" = restart ];then
     $0 stop $file
