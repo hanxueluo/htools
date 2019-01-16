@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PYKUBE=
-for pykube in $ /root/hroot/htools/pykube /root/htools/pykube
+for pykube in $ /root/hroot/htools/pykube ~/work/htools/pykube /root/htools/pykube
 do
     if test -e "$pykube";then
         PYKUBE=$pykube
@@ -95,5 +95,5 @@ alias kfa="kubectl apply -f"
 ## kubectl -n kube-system
 alias ks="kubectl -n kube-system"
 alias ksd="_k_scale deployment"
-alias ksts="_k_scale statefulset"
+alias ksts="_k_scale sts"
 fi
