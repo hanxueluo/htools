@@ -23,6 +23,12 @@ _k_scale() {
     _k_do scale "$kind" "$object" --replicas="$num" "$@"
 }
 
+_k_recreate_file() {
+    kubectl delete -f "$@"
+    echo ============
+    kubectl create -f "$@"
+}
+
 
 if test -n "$PYKUBE";then
 
@@ -35,7 +41,8 @@ alias kgn="_k_do get node"
 alias kgi="_k_do get ingress"
 alias kgr="_k_do get release"
 alias kgc="_k_do get configmap"
-alias kgnw="_k_do get net-attach-def"
+alias kgna="_k_do get net-attach-def"
+alias kgnw="_k_do get net"
 alias kga="_k_do get all"
 
 ## get as yaml
@@ -47,7 +54,8 @@ alias kyn="_k_do yaml node"
 alias kyi="_k_do yaml ingress"
 alias kyr="_k_do yaml release"
 alias kyc="_k_do yaml configmap"
-alias kynw="_k_do yaml net-attach-def"
+alias kyna="_k_do yaml net-attach-def"
+alias kynw="_k_do yaml net"
 alias kya="_k_do yaml all"
 
 ## describe
@@ -59,7 +67,8 @@ alias kdn="_k_do describe node"
 alias kdi="_k_do describe ingress"
 alias kdr="_k_do describe release"
 alias kdc="_k_do describe configmap"
-alias kdnw="_k_do describe net-attach-def"
+alias kdna="_k_do describe net-attach-def"
+alias kdnw="_k_do describe net"
 alias kda="_k_do describe all"
 
 ## delete
@@ -70,7 +79,8 @@ alias kddd="_k_do delete deployment"
 alias kddi="_k_do delete ingress"
 alias kddr="_k_do delete release"
 alias kddc="_k_do delete configmap"
-alias kddnw="_k_do delete net-attach-def"
+alias kddna="_k_do delete net-attach-def"
+alias kddnw="_k_do delete net"
 alias kdda="_k_do delete all"
 
 ## edit
@@ -81,7 +91,8 @@ alias ked="_k_do edit deployment"
 alias kei="_k_do edit ingress"
 alias ker="_k_do edit release"
 alias kec="_k_do edit configmap"
-alias kenw="_k_do edit net-attach-def"
+alias kena="_k_do edit net-attach-def"
+alias kenw="_k_do edit net"
 
 ## log
 alias klp="_k_do logs pod"
@@ -91,6 +102,7 @@ alias kfc="kubectl create -f"
 alias kfd="kubectl delete -f"
 alias kfp="kubectl patch -f"
 alias kfa="kubectl apply -f"
+alias kfr="_k_recreate_file"
 
 ## kubectl -n kube-system
 alias ks="kubectl -n kube-system"
