@@ -1,6 +1,8 @@
 #!/bin/bash
 
 cni=$(basename $0)
+logfile=/tmp/$cni-cni.log
+id=$((RANDOM))
 
 is_file() {
     test -f $1 && ! test -L $1
@@ -31,16 +33,13 @@ elif [ "$1" = "uninstall" ];then
 fi
 
 
-
-
-
 cni=$(basename $0)
 if test -L $0;then
     cni=${cni}0
 elif [[ "$cni" == "log-"* ]];then
     cni=${cni#log-}
 else
-    echo "Error: no delegate $0: $@" >> /tmp/log_cni.log
+    echo "Error: no delegate $0: $@" >> $logfile
     exit 1
 fi
 
@@ -48,14 +47,14 @@ cni=/opt/cni/bin/$cni
 
 stdin=
 {
-    echo "=========S=$(date)= $cni $@ ==="
+    echo "=========S=$(date)= $cni $@ === $id"
     echo "env:"
     printenv |grep CNI_ |sort
     stdin=$(timeout 2 cat)
     echo "stdin:"
     echo "$stdin"
 
-} >>/tmp/log_cni.log
+} >> $logfile
 
 res=$(echo "$stdin" | $cni "$@")
 code=$?
@@ -63,8 +62,8 @@ echo "$res"
 
 {
     echo "res: $code, $res"
-    echo "=========E== $cni $@ ==="
+    echo "=========E== $cni $@ ===time use: $SECONDS == $id"
     echo ""
 
-} >>/tmp/log_cni.log
+} >>$logfile
 exit $code
