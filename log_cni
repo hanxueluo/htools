@@ -9,7 +9,7 @@ is_file() {
 }
 
 if [ "$1" = "ls" ];then
-    ls /opt/cni/bin/
+    ls -l --color=auto /opt/cni/bin/
     exit 0
 elif [ "$1" = "install" ];then
     dst=$2
