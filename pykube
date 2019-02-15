@@ -127,7 +127,7 @@ class KubeOption(object):
         return KubeOption(raw)
 
     def try_set_wide_for_pod(self, kind):
-        if kind == "pod" and not self.get("-o"):
+        if kind == "pod" and self.get("-o") is None:
             return self.reset_arg("-o", "wide")
         return KubeOption(self.raw)
 
