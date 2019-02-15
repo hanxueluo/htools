@@ -16,7 +16,7 @@ _k_do() {
 _k_scale() {
     local kind="$1"
     local object="$2"
-    local num="${3:-0}"
+    local num="$3"
     shift
     shift
     shift
