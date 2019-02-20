@@ -60,6 +60,7 @@ class Utility:
 	#    logging.debug('Successful to execute cmd: %s %s:%s', cmd, in_, stdout.strip())
 	return (p.returncode, stdout, stderr)
 
+
 class Action(object):
     def __init__(self, name):
         super(self, Action).__init__()
@@ -360,12 +361,17 @@ class Executor(object):
     def extract_namespace_resource(self, lines, numbers):
         if not lines:
             return lines
+        ns = lines[0].split()[1]
+        has_ns = ns in ["NS", "NAMESPACE"]
         lines2 = []
         for line in lines:
             items = line.split()
             if items[0] in numbers:
-                lines2.append((items[1], items[2]))
                 numbers.remove(items[0])
+                if has_ns:
+                    lines2.append((items[1], items[2]))
+                else:
+                    lines2.append(("", items[1]))
             if not numbers:
                 break
         return lines2
@@ -413,6 +419,7 @@ def main(argv):
         resource = argv.pop()
     argv.reverse()
     Executor(action, kind, resource, argv).execute()
+
 
 main(sys.argv[1:])
 
