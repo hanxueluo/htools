@@ -245,8 +245,8 @@ class Executor(object):
             if namespace.startswith("."):
                 namespace = {".ks": "kube-system", ".d": "default"}.get(namespace, namespace)
             hasfilter = True
-        elif self.resource.startswith("/"):
-            _pattern = self.resource[1:]
+        elif self.resource.startswith("/") or self.resource.startswith("@"):
+            _pattern = self.resource
             namespace = ""
             hasfilter = True
         else:
@@ -328,10 +328,17 @@ class Executor(object):
 
     def filter_by_pattern(self, lines, pattern):
         lines2 = []
-        rr = re.compile(pattern)
+        rr = re.compile(pattern[1:])
         for line in lines:
-            if line.startswith("NAME ") or line.startswith("NAMESPACE ") or rr.search(line):
+            if line.startswith("NAME ") or line.startswith("NAMESPACE "):
                 lines2.append(line)
+                continue
+            if rr.search(line):
+                if pattern[0] == "/":
+                    lines2.append(line)
+            else:
+                if pattern[0] == "@":
+                    lines2.append(line)
         return lines2
 
     def confirm_before_do(self, message):
