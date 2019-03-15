@@ -14,9 +14,15 @@ do_route_init() {
 
 ACTION=ssh
 
+PASSWORD=
 _execute() {
-    set -x
-    exec "$@"
+    if test -n "$PASSWORD";then
+        set -x
+        exec sshpass -p "$PASSWORD" "$@"
+    else
+        set -x
+        exec "$@"
+    fi
 }
 
 do_action() {
@@ -27,23 +33,20 @@ do_action() {
     fi
     shift
     read dst_ip passwd <<<"$res"
+    PASSWORD=$passwd
     if [ "$ACTION" = ssh ];then
-        if test -n "$passwd";then
-            _execute sshpass -p "$passwd" ssh -oStrictHostKeyChecking=no $dst_ip "$@"
-        else
-            _execute ssh $dst_ip "$@"
-        fi
+        _execute ssh -oStrictHostKeyChecking=no $dst_ip "$@"
     elif [ "$ACTION" = upload ];then
         local sfile="$1"
         local dfile="$2"
 
         if test -f "$sfile";then
-            _execute sshpass -p "$passwd" scp -oStrictHostKeyChecking=no $sfile "$dst_ip":"$dfile"
+            _execute scp -oStrictHostKeyChecking=no $sfile "$dst_ip":"$dfile"
         fi
     elif [ "$ACTION" = download ];then
         local sfile="$1"
         local dfile="$2"
-        _execute sshpass -p $passwd scp -oStrictHostKeyChecking=no $dst_ip:$sfile "$dfile"
+        _execute scp -oStrictHostKeyChecking=no $dst_ip:$sfile "$dfile"
     fi
     exit
 

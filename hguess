@@ -36,6 +36,7 @@ do_guess() {
         else
             dst_ip=192.168.19.0
         fi
+        passwd=$DEFAULT_PASSWD
     elif echo "$dst" | grep -q "^[0-9]\+$";then # vm on PC
         dst_ip=172.16.70.$dst
         if ip route get $PC_IP | grep -wq via;then
@@ -43,15 +44,17 @@ do_guess() {
         fi
     elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+$";then # 192.168.xxx.yyy
         dst_ip=192.168.$dst
+        passwd=$DEFAULT_PASSWD
     elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+\.[0-9]\+$";then # 192.168.xxx.yyy
         dst_ip=192.$dst
+        passwd=$DEFAULT_PASSWD
     elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$";then
         dst_ip=$dst
+        passwd=$DEFAULT_PASSWD
     else
         echo "Unkown dst '$dst', exit" >&2
         return 1
     fi
-    passwd=${passwd:-$DEFAULT_PASSWD}
     echo "$dst_ip" "$passwd"
     return 0
 }
