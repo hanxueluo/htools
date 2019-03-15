@@ -1,17 +1,9 @@
 #!/usr/bin/env bash
 
 cd $(dirname $0)
-PC_IP=192.168.11.237
-PC_IP=192.168.10.174
-DEFAULT_PASSWD=${DEFAULT_PASSWD:-123456}
+source ./hguess
 
-dst=$1
 dst_ip=$PC_IP
-
-DO_COPY=
-if echo $0 |grep hcp;then
-    DO_COPY=1
-fi
 
 do_route_init() {
     if ! ip route | grep -q "172.16.70.0/24 via $PC_IP";then
@@ -20,53 +12,42 @@ do_route_init() {
     hss pc 'iptables -I FORWARD -o virbr0 -s 192.168.10/23 -m comment --comment "pc-fwd-vm" -j ACCEPT'
 }
 
-startswith() {
-    local value="$1"
-    local prefix="$2"
-    local postfix=
-    if [[ "$value" == "$prefix"* ]];then
-        postfix=${value#$prefix}
-    else
-        return 1
-    fi
-    echo $postfix
+ACTION=ssh
+
+_execute() {
+    set -x
+    exec "$@"
 }
 
-do_ssh() {
-    local dst=$1
-    local passwd=
-    if [ "$dst" = "hhl" ];then
-        dst_ip=192.168.10.192
-    elif [ "$dst" = "pc" ];then  # PC
-        dst_ip=$PC_IP
-    elif [ "$dst" = "net" ];then # net team physical server
-        dst_ip=192.168.128.141
-        passwd=$DEFAULT_PASSWD
-    elif postfix=$(startswith $dst app);then # app team compass cluster
-        if test -n "$postfix";then
-            dst_ip=192.168.21.$postfix
-        else
-            dst_ip=192.168.19.0
-        fi
-        passwd=$DEFAULT_PASSWD
-    elif echo "$dst" | grep -q "^[0-9]\+$";then # vm on PC
-        dst_ip=172.16.70.$dst
-        if ip route get $PC_IP | grep -wq via;then
-            JUMP_IP=$PC_IP
-        fi
-    elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+$";then # 192.168.xxx.yyy
-        dst_ip=192.168.$dst
-        passwd=$DEFAULT_PASSWD
-    elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$";then
-        dst_ip=$dst
-        passwd=$DEFAULT_PASSWD
-    else
-        echo "Unkown dst '$dst', exit"
+do_action() {
+    local dst="$1"
+    local res=$(do_guess $dst)
+    if test -z "$res";then
         exit 1
     fi
     shift
-    if test -n "$JUMP_IP";then
-        exec ssh -tt $JUMP_IP ssh $dst_ip "$@"
+    read dst_ip passwd <<<"$res"
+    if [ "$ACTION" = ssh ];then
+        if test -n "$passwd";then
+            _execute sshpass -p "$passwd" ssh -oStrictHostKeyChecking=no $dst_ip "$@"
+        else
+            _execute ssh $dst_ip "$@"
+        fi
+    elif [ "$ACTION" = upload ];then
+        local sfile="$1"
+        local dfile="$2"
+
+        if test -f "$sfile";then
+            _execute sshpass -p "$passwd" scp -oStrictHostKeyChecking=no $sfile "$dst_ip":"$dfile"
+        fi
+    elif [ "$ACTION" = download ];then
+        local sfile="$1"
+        local dfile="$2"
+        _execute sshpass -p $passwd scp -oStrictHostKeyChecking=no $dst_ip:$sfile "$dfile"
+    fi
+    exit
+
+    if test -n "$JUMP_IP";then exec ssh -tt $JUMP_IP ssh $dst_ip "$@"
     fi
     if test -n "$passwd";then
         set -x
@@ -79,7 +60,15 @@ do_ssh() {
 
 if [ "$1"  = route ];then
     do_route_init
-else
-    do_ssh "$@"
+    exit
 fi
+if [ "$1" = u ];then
+    ACTION=upload
+    shift
+elif [ "$1" = d ];then
+    ACTION=download
+    shift
+fi
+
+do_action "$@"
 
