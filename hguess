@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+PC_IP=192.168.11.237
+PC_IP=192.168.10.174
+DEFAULT_PASSWD=${DEFAULT_PASSWD:-123456}
+
+startswith() {
+    local value="$1"
+    local prefix="$2"
+    local postfix=
+    if [[ "$value" == "$prefix"* ]];then
+        postfix=${value#$prefix}
+    else
+        return 1
+    fi
+    echo $postfix
+}
+
+declare -A DICT
+
+DICT=( \
+    [pc]="$PC_IP" \
+    [app]="192.168.19.0" \
+    [net]="192.168.128.141" )
+
+do_guess() {
+    local dst=$1
+    local res=
+    local passwd=
+    res=${DICT[$dst]}
+    if test -n "$res";then
+        read dst_ip passwd <<<"$res"
+    elif postfix=$(startswith $dst app);then # app team compass cluster
+        if test -n "$postfix";then
+            dst_ip=192.168.21.$postfix
+        else
+            dst_ip=192.168.19.0
+        fi
+    elif echo "$dst" | grep -q "^[0-9]\+$";then # vm on PC
+        dst_ip=172.16.70.$dst
+        if ip route get $PC_IP | grep -wq via;then
+            JUMP_IP=$PC_IP
+        fi
+    elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+$";then # 192.168.xxx.yyy
+        dst_ip=192.168.$dst
+    elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+\.[0-9]\+$";then # 192.168.xxx.yyy
+        dst_ip=192.$dst
+    elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$";then
+        dst_ip=$dst
+    else
+        echo "Unkown dst '$dst', exit"
+        return 1
+    fi
+    passwd=${passwd:-$DEFAULT_PASSWD}
+    echo "$dst_ip" "$passwd"
+    return 0
+}
