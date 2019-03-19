@@ -1,0 +1,22 @@
+#!/bin/bash -e
+
+container=$1
+file=$2
+
+test -n "$file" || exit 1
+
+filename=$(basename $file)
+
+
+mkdir -p /tmp/cvim/
+docker cp $container:$file /tmp/cvim/$filename
+md5sum /tmp/cvim/$filename >/tmp/cvim/$filename-md5sum
+
+
+vim /tmp/cvim/$filename
+
+if md5sum -c /tmp/cvim/$filename-md5sum >/dev/null 2>/dev/null;then
+    exit 0
+fi
+
+docker cp /tmp/cvim/$filename $container:$(dirname $file)/
