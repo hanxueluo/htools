@@ -20,7 +20,7 @@ declare -A DICT
 
 DICT=( \
     [pc]="$PC_IP" \
-    [app]="192.168.19.0" \
+    [app]="192.168.19.0 $DEFAULT_PASSWD" \
     [net]="192.168.128.141" )
 
 do_guess() {

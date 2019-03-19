@@ -2,6 +2,7 @@
 
 cd $(dirname $0)
 source ./hguess
+cd - >/dev/null
 
 dst_ip=$PC_IP
 
