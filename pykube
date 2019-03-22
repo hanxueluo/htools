@@ -14,9 +14,6 @@ tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
 if not os.path.isdir(tmpdir):
     os.mkdir(tmpdir)
 
-def has_no_ns(kind):
-    return kind in ["node", "tenants", "crd", "bgpconfiguration", "bgppeer"]
-
 def print_to_stderr(message, newilne=True):
     print >> sys.stderr, "# ", message,
     if newilne:
@@ -161,8 +158,6 @@ class Executor(object):
             namespace = "--all-namespaces"
         elif namespace and not namespace.startswith("-"):
             namespace = "-n " + namespace
-        if has_no_ns(kind):
-            namespace = ""
 
         if action == "logs":
             kind = ""
@@ -299,8 +294,6 @@ class Executor(object):
         print "\n".join(lines)
 
     def format_namespace(self, lines, kind, namespace):
-        if has_no_ns(kind):
-            namespace = "*"
         if namespace:
             formtter = "%%-%ds %%s" % max(len(namespace), 2)
             lines2 = []
@@ -381,7 +374,7 @@ class Executor(object):
                 if has_ns:
                     lines2.append((items[1], items[2]))
                 else:
-                    lines2.append(("", items[1]))
+                    lines2.append(("-", items[1]))
             if not numbers:
                 break
         return lines2
