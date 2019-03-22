@@ -38,16 +38,35 @@ do_action() {
     if [ "$ACTION" = ssh ];then
         _execute ssh -oStrictHostKeyChecking=no $dst_ip "$@"
     elif [ "$ACTION" = upload ];then
-        local sfile="$1"
-        local dfile="$2"
+        local src="$1"
+        local dst="$2"
 
-        if test -f "$sfile";then
-            _execute scp -oStrictHostKeyChecking=no $sfile "$dst_ip":"$dfile"
+        test -n "$dst" || dst=/root/
+
+        if test -f "$src";then
+            _execute scp -oStrictHostKeyChecking=no $src "$dst_ip":"$dst"
+        elif test -d "$src";then
+            local src_parent=$(dirname $src)
+            local src_filename=$(basename $src)
+
+            tar czf - "$src_filename" -C "$src_parent" | _execute ssh -oStrictHostKeyChecking=no "$dst_ip" "cd $dst && tar zxf -"
         fi
     elif [ "$ACTION" = download ];then
-        local sfile="$1"
-        local dfile="$2"
-        _execute scp -oStrictHostKeyChecking=no $dst_ip:$sfile "$dfile"
+        local src="$1"
+        local dst="$2"
+
+        local src_parent=$(dirname $src)
+        local src_filename=$(basename $src)
+
+        test -n "$dst" || dst=./
+
+
+        if [[ "$src" == */ ]];then
+            _execute ssh -oStrictHostKeyChecking=no "$dst_ip" tar czf - -C "$src_parent" "$src_filename"  \
+                | { cd "$dst" && tar zxf - ; }
+        else
+            _execute scp -oStrictHostKeyChecking=no $dst_ip:$src "$dst"
+        fi
     fi
     exit
 
