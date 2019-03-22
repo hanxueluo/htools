@@ -109,7 +109,9 @@ class KubeOption(object):
 
     def has(self, arg, arg2=None):
         i, b = self._get_option(arg)
-        return i >= 0 and b == arg2
+        if i < 0:
+            return False
+        return arg2 is None or arg2 == b
 
     def get(self, arg):
         _, b = self._get_option(arg)
@@ -119,7 +121,8 @@ class KubeOption(object):
         raw = self.raw[:]
         i, _next = self._get_option(arg)
         if _next is not None:
-            del raw[i+1]
+            if raw[i] != arg and len(raw) > i+1:
+                del raw[i+1]
             del raw[i]
         elif i>= 0:
             del raw[i]
@@ -292,7 +295,7 @@ class Executor(object):
                 print_to_stderr("Aborted.")
                 return
 
-        lines = self.kube_execute(namespace, action, kind, resource, KubeOption(self.others))
+        lines = self.kube_execute(namespace, action, kind, resource, KubeOption(option.raw + self.others))
         print "\n".join(lines)
 
     def format_namespace(self, lines, kind, namespace):
