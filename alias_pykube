@@ -43,6 +43,7 @@ alias kgr="_k_do get release"
 alias kgc="_k_do get configmap"
 alias kgna="_k_do get net-attach-def"
 alias kgnw="_k_do get net"
+alias kgl="_k_do get loadbalancers"
 alias kga="_k_do get all"
 
 ## get as yaml
@@ -56,6 +57,7 @@ alias kyr="_k_do yaml release"
 alias kyc="_k_do yaml configmap"
 alias kyna="_k_do yaml net-attach-def"
 alias kynw="_k_do yaml net"
+alias kyl="_k_do yaml loadbalancers"
 alias kya="_k_do yaml all"
 
 ## describe
@@ -69,6 +71,7 @@ alias kdr="_k_do describe release"
 alias kdc="_k_do describe configmap"
 alias kdna="_k_do describe net-attach-def"
 alias kdnw="_k_do describe net"
+alias kdl="_k_do describe loadbalancers"
 alias kda="_k_do describe all"
 
 ## delete
@@ -93,6 +96,7 @@ alias ker="_k_do edit release"
 alias kec="_k_do edit configmap"
 alias kena="_k_do edit net-attach-def"
 alias kenw="_k_do edit net"
+alias kel="_k_do edit loadbalancers"
 
 ## log
 alias klp="_k_do logs pod"
