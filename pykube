@@ -172,7 +172,7 @@ class Executor(object):
                 option.raw = ["bash"]
             option.raw = ["-it", "--"] + option.raw
         elif action == "get":
-            if kind == "pod":
+            if kind == "pod" and not option.raw:
                 option = option.try_set_wide_for_pod(kind)
 
         args = " ".join([
