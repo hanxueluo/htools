@@ -158,6 +158,8 @@ class Executor(object):
             namespace = "--all-namespaces"
         elif namespace and not namespace.startswith("-"):
             namespace = "-n " + namespace
+        elif namespace.startswith("-"):
+            namespace = ""
 
         if action == "logs":
             kind = ""
