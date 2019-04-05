@@ -49,7 +49,7 @@ do_action() {
             local src_parent=$(dirname $src)
             local src_filename=$(basename $src)
 
-            tar czf - "$src_filename" -C "$src_parent" | _execute ssh -oStrictHostKeyChecking=no "$dst_ip" "cd $dst && tar zxf -"
+            tar czf - -C "$src_parent" "$src_filename" | _execute ssh -oStrictHostKeyChecking=no "$dst_ip" "cd $dst && tar zxf -"
         fi
     elif [ "$ACTION" = download ];then
         local src="$1"
