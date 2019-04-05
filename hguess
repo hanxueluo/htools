@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-PC_IP=192.168.11.237
-PC_IP=192.168.10.174
+PC_IP=192.168.10.137
 DEFAULT_PASSWD=${DEFAULT_PASSWD:-123456}
 
 startswith() {

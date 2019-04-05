@@ -2,7 +2,7 @@
 
 RULE_MATCH_="-p tcp --dport 32145"
 RULE_MATCH_="-p tcp"
-RULE_MATCH_="-s 192.168.10.174 -p tcp"
+RULE_MATCH_="-s 192.168.10.137 -p tcp"
 RULE_MATCH_="-d 172.16.70.51 -p icmp"
 
 #HIPT_RULE_MATCH=${RULE_MATCH_}
