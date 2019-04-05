@@ -9,7 +9,6 @@ do
     fi
 done
 
-
 _k_do() {
     $PYKUBE "$@"
 }
@@ -83,6 +82,23 @@ EOF
     alias kpy="_k_do"
 }
 
+_k_setup_docker_alias() {
+    local PYDOCKER=
+    for file in /root/hroot/htools/pydocker ~/work/htools/pydocker /root/htools/pydocker
+    do
+        if test -e "$file";then
+            PYDOCKER=$file
+            break
+        fi
+    done
+
+    if test -n "$PYDOCKER";then
+        alias doc="$PYDOCKER container"
+        alias doi="$PYDOCKER image"
+    fi
+}
+
 if test -n "$PYKUBE";then
     _k_setup_alias
+    _k_setup_docker_alias
 fi

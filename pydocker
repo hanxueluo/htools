@@ -7,315 +7,409 @@ import os
 import subprocess
 import sys
 import re
+from cmdindex import *
+import glob
+import json
 
-KUBECTL_GET_TMPFILE="/tmp/hhl.kubectl_alias/get.tmpfile"
+KUBECTL_GET_TMPFILE="/tmp/hhl.docker_alias/get.tmpfile"
 
 tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
 if not os.path.isdir(tmpdir):
     os.mkdir(tmpdir)
 
-def print_to_stderr(message, newilne=True):
-    print >> sys.stderr, "# ", message,
-    if newilne:
-        print >> sys.stderr, ""
-    sys.stderr.flush()
+def find_in_cache(lines, kind, resource):
+    column = 2 if kind == "image" else 0
+    res = []
+    resources = resource.split()
+    for l in lines:
+        if l.split()[column] in resources:
+            res.append(l)
+    return res
 
-
-class Utility:
-    @staticmethod
-    def write_file(filename, content):
-        try:
-            with open(filename, "w") as f:
-                f.write(content)
-        except:
-            pass
-
-    @staticmethod
-    def read_file(filename):
-        content = ""
-        try:
-            with open(filename, "r") as f:
-                content = f.read()
-        except:
-            pass
-        return content
-
-    @staticmethod
-    def execute(cmd, stdio=False):
-        shell = isinstance(cmd, str)
-        if stdio:
-            p = subprocess.Popen(cmd, shell=shell, close_fds=True)
-            stdout, stderr = p.communicate()
-            stdout = ""
-        else:
-            p = subprocess.Popen(cmd, shell=shell, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True)
-            stdout, stderr = p.communicate()
-	#if p.returncode != 0:
-	#    logging.error('Failed to execute cmd: %s :%s', cmd, stderr.strip())
-	#else:
-	#    in_ = ' < %s ' % input_ if input_ else ''
-	#    logging.debug('Successful to execute cmd: %s %s:%s', cmd, in_, stdout.strip())
-	return (p.returncode, stdout, stderr)
-
-
-class Action(object):
-    def __init__(self, name):
-        super(self, Action).__init__()
-        self.name = name
-
-class Kind(object):
-    def __init__(self, name):
-        super(self, Kind).__init__()
-        self.name = name
-
-class Resource(object):
-    def __init__(self, name):
-        super(self, Resource).__init__()
-        self.name = name
-
-class KubeOption(object):
-    def __init__(self, raw):
-        super(KubeOption, self).__init__()
-        self.raw = raw
-
-    def _get_option(self, arg):
-        i, _next = -1, None
-        try:
-            i = self.raw.index(arg)
-            _next = self.raw[i+1]
-            if _next.startswith("-"):
-                _next = None
-        except:
-            pass
-        if i < 0:
-            for ii, a in enumerate(self.raw):
-                if a.startswith(arg):
-                    i = ii
-                    _next = a[len(arg):].lstrip("=")
-                    break
-        return i, _next
-
-    def get_output(self):
-        _, output = self._get_option("-o")
-        return  "" if output is None else output
-
-    def is_list(self, output=None):
-        if output is None:
-            output = self.get_output()
-        return not (output.startswith("yaml") or output.startswith("json") or output.startswith("name"))
-
-    def has(self, arg, arg2=None):
-        i, b = self._get_option(arg)
-        if i < 0:
-            return False
-        return arg2 is None or arg2 == b
-
-    def get(self, arg):
-        _, b = self._get_option(arg)
-        return b
-
-    def reset_arg(self, arg, arg2=None):
-        raw = self.raw[:]
-        i, _next = self._get_option(arg)
-        if _next is not None:
-            if raw[i] != arg and len(raw) > i+1:
-                del raw[i+1]
-            del raw[i]
-        elif i>= 0:
-            del raw[i]
-
-        raw.append( arg if arg2 is None else arg + arg2 )
-        return KubeOption(raw)
-
-    def try_set_wide_for_pod(self, kind):
-        if kind == "pod" and self.get("-o") is None:
-            return self.reset_arg("-o", "wide")
-        return KubeOption(self.raw)
-
-class Executor(object):
-    def __init__(self, action, kind, resource="", others=""):
-        super(Executor, self).__init__()
+class DockerExtraCommand(object):
+    def __init__(self, kind, action, resource, option, cache):
+        super(DockerExtraCommand, self).__init__()
         self.action = action
         self.kind = kind
         self.resource = resource
-        self.others = others.split() if others is str else others
+        self.option = option
+        self.cache = cache
 
-        self.kind, self.resource = self._reset_kind_resource(self.kind, self.resource)
+    def run(self):
+        if not (self.kind == "container" and self.action in ["ks", "nx", "u", "d"]):
+            return False, 0, "", ""
+        if self.action == "ks":
+            code, out, err  = self.cmd_kube_ls()
+        elif self.action == "nx":
+            code, out, err  = self.cmd_netns_execute()
+        elif self.action == "u":
+            code, out, err  = self.cmd_copy_upload()
+        elif self.action == "d":
+            code, out, err  = self.cmd_copy_download()
+        else:
+            code, out, err  = 2, "", "not implemented"
+        return True, code, out, err
 
-    def _reset_kind_resource(self, kind, resource):
-        # handle "pod/kube-proxy-pch4q" and "all pod/kube-proxy-pch4q"
-        if "all" == kind and resource and "/" in resource[1:]:
-            kind = resource
-            resource = "."
-        if "/" in kind[1:] and resource == ".":
-            ss = kind.split("/", 1)
-            kind = ss[0].split(".")[0]
-            resource = ss[1]
-        return kind, resource
+    def _load_one_container_data(self, config_file):
+        d = {}
+        content = Utility.read_file(config_file)
+        js = json.loads(content)
+        pid = int(js[u"State"]["Pid"])
+        if pid == 0:
+            return d
 
-    def kube_execute(self, namespace, action, kind, resource, option):
-        if namespace == "":
-            namespace = "--all-namespaces"
-        elif namespace and not namespace.startswith("-"):
-            namespace = "-n " + namespace
-        elif namespace.startswith("-"):
-            namespace = ""
+        path = js[u"Path"]
+        if path == u"/pause":
+            return d
 
-        if action == "logs":
-            kind = ""
-        elif action == "exec":
-            kind = ""
-            if not option.raw:
-                option.raw = ["bash"]
-            option.raw = ["-it", "--"] + option.raw
-        elif action == "get":
-            if kind == "pod" and not option.raw:
-                option = option.try_set_wide_for_pod(kind)
+        ip = [ s for s in js[u"Config"][u"Env"] if s.startswith(u"POD_IP=") ]
+        if ip:
+            ip = ip[0].split("=",1)[1]
+        else:
+            ip = u"-"
+
+        labes = js[u"Config"][u"Labels"]
+        pname = labes[u"io.kubernetes.pod.name"]
+        cname = labes[u"io.kubernetes.container.name"]
+
+        if cname in [u"POD", u"c1", u"c0"]:
+            cname = "-"
+
+        try:
+            netns = os.readlink("/proc/%s/ns/net" % pid)
+            netns = netns.split('[')[-1].strip(']')
+        except:
+            netns = "-"
+
+        id_ = js[u"ID"][:12]
+        d = {
+                "id": id_,
+                "pid": pid,
+                "ip": ip,
+                "pname": pname,
+                "cname": cname,
+                "netns": netns,
+                "vethpeer": "-",
+                }
+        return d
+
+    def _load_kube_data(self):
+        path = "/var/lib/docker/containers/*/config.v2.json"
+        data = {}
+        for cf in glob.glob(path):
+            try:
+                d = self._load_one_container_data(cf)
+            except Exception as e:
+                Utility.print_to_stderr("exception when load %s: %s" % (cf, e))
+                continue
+            if d:
+                data[d["id"]] = d
+        return data
+
+    def _get_net_data(self, nslist=None):
+        netdata = {}
+        code, out, err = Utility.execute("lsns -tnet --output=NS,PID -n".split())
+
+        netIndex = {}
+        if out:
+            for i in glob.glob("/sys/class/net/*/ifindex"):
+                index = Utility.read_file(i).strip()
+                netIndex[index] = i.split("/")[4]
+
+        for l in out.splitlines():
+            items =  l.split()
+            if nslist is not None and items[0] not in nslist:
+                continue
+            if items[1] == "1":
+                netdata[items[0]] = "-"
+            code, out, _ = Utility.execute("nsenter -t {} -n ip link show eth0".format(items[1]).split())
+            if code != 0:
+                continue
+            index = out.split(":", 2)[1].rsplit("f",1)[-1]
+            iface = netIndex.get(index, "-")
+            netdata[items[0]] = iface
+        return netdata
+
+    def _format_result(self, data, columns):
+        res_list = []
+        for i, c in enumerate(columns):
+            if type(c) is str:
+                columns[i] = (c, c.upper())
+
+        res_list.append([ n for _, n in columns ])
+        for d in data.itervalues():
+            r = []
+            for k, _ in columns:
+                r.append(str(d.get(k, "-")))
+            res_list.append(r)
+
+
+        len_list = [0] * len(columns)
+        for line in res_list:
+            for i, word in enumerate(line):
+                len_list[i] = max(len_list[i], len(word))
+
+        ss = ""
+        for line in res_list:
+            s = ""
+            for i, word in enumerate(line):
+                l = len_list[i]
+                fmt = '%-{}s '.format(l)
+                s += fmt % word
+            ss += s.rstrip() + "\n"
+        return ss
+
+    def _complete_iface(self, data):
+        nslist = set()
+        for v in data.itervalues():
+            nslist.add(v.get("netns", "-"))
+
+        netdata = self._get_net_data(nslist)
+        for v in data.itervalues():
+            iface = netdata.get(v.get("netns", "-"), "-")
+            v["vethpeer"] = iface
+
+    def cmd_kube_ls(self):
+        data = self._load_kube_data()
+        columns = [("id", "CONTAINER ID"), "pid", "ip", "cname", "pname"]
+        if self.resource:
+            if self.resource in data:
+                columns.insert(3, "vethpeer")
+                data = { self.resource: data[self.resource] }
+                self._complete_iface(data)
+            else:
+                return 1, "", "%s doesn't exist" % self.resource
+        out = self._format_result(data, columns)
+        return 0, out, ""
+
+    def test(self):
+        #self._load_kube_data()
+        print self._get_net_data()
+
+
+    def cmd_netns_execute(self):
+        lines = find_in_cache(self.cache, self.kind, self.resource)
+        if not lines:
+            return 1, "", "%s doesn't exist" % self.resource
+
+        for line in lines:
+            pid = line.split()[1]
+            cmd = self.option.raw
+            if not cmd:
+                cmd = ["bash"]
+            args = ["nsenter", "-t", pid, "-n"] + cmd
+            Utility.print_to_stderr(" ".join(args))
+            try:
+                code, out, err = Utility.execute(args, True)
+                if code != 0:
+                    print "= error code:", code
+            except KeyboardInterrupt:
+                code = 1
+                out = ""
+                err = "KeyboardInterrupt"
+                break
+        return code, "", ""
+
+    def cmd_copy_upload(self):
+        ids = self.resource.split()
+        if not ids:
+            return 1, "", "%s doesn't exist" % self.resource
+
+        for id_ in ids:
+            src = self.option.raw[0]
+            dst = self.option.raw[1] if len(self.option.raw) > 1 else "/tmp/"
+            args = ["docker", "cp", src, "%s:%s" % (id_, dst)]
+            Utility.print_to_stderr(" ".join(args))
+            try:
+                code, out, err = Utility.execute(args, True)
+                if code != 0:
+                    print "= error code:", code
+            except KeyboardInterrupt:
+                code = 1
+                out = ""
+                err = "KeyboardInterrupt"
+                break
+        return code, "", ""
+
+    def cmd_copy_download(self):
+        ids = self.resource.split()
+        if len(ids) != 1:
+            return 1, "", "too many or empty ids: %s" % self.resource
+
+        for id_ in ids:
+            src = self.option.raw[0]
+            dst = self.option.raw[1] if len(self.option.raw) > 1 else "./"
+            args = ["docker", "cp", "%s:%s" % (id_, src), dst]
+            Utility.print_to_stderr(" ".join(args))
+            try:
+                code, out, err = Utility.execute(args, True)
+                if code != 0:
+                    print "= error code:", code
+            except KeyboardInterrupt:
+                code = 1
+                out = ""
+                err = "KeyboardInterrupt"
+                break
+        return code, "", ""
+
+
+class DockerExecutor(object):
+    def __init__(self, kind, action, resource="", others=""):
+        super(DockerExecutor, self).__init__()
+        self.action = {
+                "i": "inspect",
+                "k": "kill",
+                "l": "logs",
+                "x": "exec"
+                }.get(action, action)
+        self.kind = kind
+        self.resource = resource
+        self.others = others.split() if type(others) is str else others
+        self.cache = {}
+
+    def save_cache(self, lines):
+        self.cache = lines
+
+    def raw_execute(self, kind, action, resource, option):
+        if action == "ls" and kind == "container":
+            if option.has("-d"):
+                option = option.remove_arg("-d")
+                resource = ""
+            else:
+                action = "ks"
+
+        if action == "push" and kind == "image":
+            lines = find_in_cache(self.cache, kind, resource)
+            resource = ""
+            for line in lines:
+                items = line.split()
+                resource += "%s:%s " % (items[0], items[1])
+            resource = resource.strip()
 
         args = " ".join([
-                "kubectl",
-                action,
-                namespace,
+                "docker",
                 kind,
+                action,
                 resource
                 ]).split() + option.raw
+        if action == "exec":
+            args.insert(3, "-it")
+            if not option.raw:
+                args += ["bash"]
 
-        print_to_stderr(" ".join(args))
-        use_stdout = action in ["edit", "exec", "logs"] or (action == "get" and option.has("-w"))
+        Utility.print_to_stderr(" ".join(args))
+        use_stdout = action in ["exec", "logs", "stats", "top"]
         try:
-            code, out, err = Utility.execute(args, use_stdout)
+            dec = DockerExtraCommand(kind, action, resource, option, self.cache)
+            yes, code, out, err = dec.run()
+            if not yes:
+                code, out, err = Utility.execute(args, use_stdout)
         except KeyboardInterrupt:
             code = 1
             err = "KeyboardInterrupt"
 
-
         if code != 0:
-            print_to_stderr("cmd: %s, code: %s, err: %s" % (args, code, err))
+            Utility.print_to_stderr("cmd: %s, code: %s, err: %s" % (args, code, err))
             sys.exit(1)
         if err:
-            print_to_stderr("cmd %s: error:  %s" % (args, err))
+            Utility.print_to_stderr("cmd %s: error:  %s" % (args, err))
 
         lines = out.splitlines()
-        if code == 0 and out and action == "get" and kind == "node" and option.is_list():
-            lines = self._patch_ndoe_ip(lines)
-
         return lines
 
-    def _patch_ndoe_ip(self, lines):
-        if not lines:
+    def get_option(self, ps):
+        return CmdOption(ps)
+
+    def select_by_pattern(self, lines, pattern):
+        if not pattern:
             return lines
 
-        cmd = "kubectl get node -o=custom-columns=NAME:.metadata.name,ADDRESS:.status.addresses[0].address"
-        out = Utility.execute(cmd)[1]
-        ips = {}
-        for l in out.splitlines():
-            k, v = l.split()
-            ips[k] = v
-        lines2 = []
-        for l in lines:
-            n = l.split()[0]
-            line = l + "   " + ips.get(n, "")
-            lines2.append(line)
-        lines = lines2
-        return lines
+        f = get_patter_selector(pattern)
+        return do_filter(lines, f, None)
+
+    def get_list_action(self):
+        return "ls"
+
+    def select_by_lineno(self, lines, kind, linenos):
+        if not lines:
+            return lines
+        def _s(line, ext):
+            items = line.split()
+            b = items[0] in linenos #TODO reduce numbers
+            return b, ext
+
+        column = 2 if kind == "image" else 0
+        column += 1
+        return do_filter(lines, _s, partial(column_extractor, column))
+
+    def extract_id(self, lines, kind):
+        if not lines:
+            return lines
+        column = 2 if kind == "image" else 0
+        return do_filter(lines, None, partial(column_extractor, column))
 
     def execute(self):
         _pattern = ""
         action = self.action
         kind = self.kind
         resource = ""
-        option = KubeOption(self.others)
+        option = self.get_option(self.others)
 
         # 1. expand namespace and resource
         #import pdb;pdb.set_trace()
         hasfilter = False
         if self.resource.isdigit():
             lines = Utility.read_file(KUBECTL_GET_TMPFILE + "." + kind).splitlines()
-            items = self.extract_namespace_resource(lines, [self.resource])
+            items = self.select_by_lineno(lines, kind, [self.resource])
             if items:
-                namespace = items[0][0]
-                resource = items[0][1]
+                self.save_cache(self.del_line_number(lines))
+                resource = items[0]
             else:
-                namespace = ""
                 resource = ""
                 hasfilter = True
-            kind, resource = self._reset_kind_resource(kind, resource)
-        elif self.resource.startswith("."):
-            namespace = self.resource[1:]
-            if namespace.startswith("."):
-                namespace = {".ks": "kube-system", ".d": "default"}.get(namespace, namespace)
-            hasfilter = True
+                action = self.get_list_action()
         elif self.resource.startswith("/") or self.resource.startswith("@"):
             _pattern = self.resource
-            namespace = ""
             hasfilter = True
         else:
             resource = self.resource
-            namespace = self.extract_ns_by_name(self.kube_execute("", "get", kind, "", KubeOption([])), 1, resource)
-
-        if action == "yaml":
-            action = "get"
-            option = option.reset_arg("-o", "yaml")
-
 
         # 2. first call
         lines = None
-        if action == "get":
-            op = option
-            if _pattern:
-                op = op.reset_arg("-o", "wide")
+        if self.get_list_action() == action:
+            lines = self.raw_execute(kind, action, resource, option)
+            title = lines[0]
+            lines = self.select_by_pattern(lines[1:], _pattern)
+            self.save_cache(lines)
+            lines.insert(0, title)
 
-            lines = self.kube_execute(namespace, "get", kind, resource, op)
-            if op.is_list():
-                lines = self.format_namespace(lines, kind, namespace)
-            lines = self.format_by_pattern(lines, _pattern)
-
-            if not _pattern or option.is_list():
-                self.output_result(lines, kind, op.is_list() and resource == "")
-                return
+            self.output_result(lines, kind, resource == "")
+            return
         elif hasfilter:
-            lines = self.kube_execute(namespace, "get", kind, resource, KubeOption(["-o", "wide"]))
-            lines = self.format_namespace(lines, kind, namespace)
-            lines = self.format_by_pattern(lines, _pattern)
+            lines = self.raw_execute(kind, self.get_list_action(), resource, self.get_option([]))
+            lines = self.select_by_pattern(lines[1:], _pattern)
+            self.save_cache(lines)
 
         # 3. second call
         if lines is not None:
             # TODO different namespaces
-            namespace, resources = self.extract_namespace_resource_all(lines)
+            resources = self.extract_id(lines, kind)
             resource = " ".join(resources)
 
-        if not resource and not option.raw:
-            action = "get"
+        if not resource:
+            action = self.get_list_action()
 
-        if action in ["delete", "edit"] and " " in resource:
+        if action in ["rm"] and " " in resource:
             if not self.confirm_before_do("\nAre you sure to %s %s %s? (y/n) " % (action, kind, "\n\t" + resource.replace(" ", "\n\t") + "\n")):
                 print_to_stderr("Aborted.")
                 return
 
-        lines = self.kube_execute(namespace, action, kind, resource, KubeOption(option.raw + self.others))
+        lines = self.raw_execute(kind, action, resource, self.get_option(option.raw))
         print "\n".join(lines)
-
-    def format_namespace(self, lines, kind, namespace):
-        if namespace:
-            formtter = "%%-%ds %%s" % max(len(namespace), 2)
-            lines2 = []
-            for l in lines:
-                if l.startswith("NAME "):
-                    line = formtter % ("NS", l)
-                else:
-                    line = formtter % (namespace, l)
-                lines2.append(line)
-            lines = lines2
-        return lines
-
-    def format_by_pattern(self, lines, pattern):
-        if pattern:
-            lines = self.filter_by_pattern(lines, pattern)
-        return lines
 
     def output_result(self, lines, kind, tofile):
         if tofile:
-            lines = self.add_line_number(lines, "")
+            lines = self.add_line_number(lines)
 
         result = "\n".join(lines)
 
@@ -323,21 +417,6 @@ class Executor(object):
             Utility.write_file(KUBECTL_GET_TMPFILE + "." + kind, result + "\n")
         print result
         return lines
-
-    def filter_by_pattern(self, lines, pattern):
-        lines2 = []
-        rr = re.compile(pattern[1:])
-        for line in lines:
-            if line.startswith("NAME ") or line.startswith("NAMESPACE "):
-                lines2.append(line)
-                continue
-            if rr.search(line):
-                if pattern[0] == "/":
-                    lines2.append(line)
-            else:
-                if pattern[0] == "@":
-                    lines2.append(line)
-        return lines2
 
     def confirm_before_do(self, message):
         print_to_stderr(message, False)
@@ -347,84 +426,56 @@ class Executor(object):
             r = "n"
         return r.strip().lower() in ["y", "yes"]
 
-    def extract_namespace_resource_all(self, lines):
-        namespace = ""
-        resources = []
-        for line in lines[1:]:
-            items = line.split()
-            namespace = items[0]
-            resources.append(items[1])
-        return namespace, resources
-
-    def extract_ns_by_name(self, lines, column, name):
-        for line in lines:
-            items = line.split()
-            if items[column] == name:
-                return items[column - 1]
-        return ""
-
-    def extract_namespace_resource(self, lines, numbers):
-        if not lines:
-            return lines
-        ns = lines[0].split()[1]
-        has_ns = ns in ["NS", "NAMESPACE"]
-        lines2 = []
-        for line in lines:
-            items = line.split()
-            if items[0] in numbers:
-                numbers.remove(items[0])
-                if has_ns:
-                    lines2.append((items[1], items[2]))
-                else:
-                    lines2.append(("-", items[1]))
-            if not numbers:
-                break
-        return lines2
-
-    def add_line_number(self, lines, prefix=""):
-        lines2 = []
-        for index, line in enumerate(lines):
-            s = str(index)
+    def add_line_number(self, lines):
+        def _e(index, line):
+            s = str(index[0])
+            index[0] = index[0] + 1
             if line.startswith("NAME ") or line.startswith("NAMESPACE"):
                 s = "=="
-            lines2.append("%-2s %s" % (s, prefix+line))
-        return lines2
+            return "%-2s %s" % (s, line)
+
+        return do_filter(lines, None, partial(_e, [0]))
+
+    def del_line_number(self, lines):
+        def _e(line):
+            return line.split(" ", 1)[-1].lstrip()
+        return do_filter(lines, None, _e)
 
 def test():
+    Executor = DockerExecutor
     # 1. resource is "", but others is not
-    Executor("delete", "pod", "/can").execute()
-    Executor("get", "pod", "1", "-o wide").execute()
+    Executor("container", "ls").execute()
+    Executor("container", "ls", "/ngin").execute()
+    Executor("container", "stats", "/nginx").execute()
     sys.exit(0)
-    Executor("get", "pod").execute()
-    Executor("get", "pod", ".ns").execute()
-    Executor("get", "pod", "1", "-o wide").execute()
-    Executor("get", "pod", "k4", "-o wide").execute()
+    Executor("image", "ls").execute()
+    Executor("image", "ls", "/ngin").execute()
+    Executor("image", "inspect", "/late").execute()
+    sys.exit(0)
 
-    Executor("get", "all", "daemonset.apps/helo").execute()
-    Executor("get", "daemonset.apps/helo").execute()
-
-    Executor("logs", "*", "pod1").execute()
-    Executor("exec", "*", "pod1").execute()
-    Executor("exec", "*", "pod1", "ls /").execute()
-
-    Executor("get", "pod", "/k4", "-o wide").execute()
+def test2():
+    d = DockerExtraCommand("container", "ls", "", [], "")
+    d.test()
 
 def main(argv):
-    action = "get"
-    kind = ""
-    resource = "."
+    action = "ls"
+    kind = "container"
+    resource = ""
 
     argv = argv[:]
     argv.reverse()
     if argv and argv[-1][0] != "-":
-        action = argv.pop()
-    if argv and argv[-1][0] != "-":
         kind = argv.pop()
+    if argv and argv[-1][0] != "-":
+        if argv[-1].isalpha():
+            action = argv.pop()
     if argv and argv[-1][0] != "-":
         resource = argv.pop()
     argv.reverse()
-    Executor(action, kind, resource, argv).execute()
+    DockerExecutor(kind, action, resource, argv).execute()
 
-
-main(sys.argv[1:])
+if __name__ == "__main__":
+    #test2()
+    main(sys.argv[1:])
+    #test()
 

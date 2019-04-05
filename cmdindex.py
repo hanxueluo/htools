@@ -20,6 +20,7 @@ import subprocess
 import sys
 import re
 from functools import partial
+from cmdtool import *
 
 KUBECTL_GET_TMPFILE="/tmp/hhl.kubectl_alias/get.tmpfile"
 
@@ -27,7 +28,7 @@ tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
 if not os.path.isdir(tmpdir):
     os.mkdir(tmpdir)
 
-def column_extrator(columns, line):
+def column_extractor(columns, line):
     items = line.split()
     if type(columns) is list:
         return tuple([ items[c] for c in columns ])
@@ -64,7 +65,7 @@ def true_selector(line, ext):
 def line_no_selector(line, ext):
     return False, ext
 
-def get_patter_selector(pattern, column=0):
+def get_patter_selector(pattern, column=-1):
     reverse = pattern[0] == '@'
     equal = pattern[0] == '='
     pattern_ = pattern[1:]
@@ -100,124 +101,6 @@ def do_filter(lines, selector, extractor):
             res.append(line)
     return res
 
-################################
-def print_to_stderr(message, newilne=True):
-    print >> sys.stderr, "# ", message,
-    if newilne:
-        print >> sys.stderr, ""
-    sys.stderr.flush()
-
-
-class Utility:
-    @staticmethod
-    def write_file(filename, content):
-        try:
-            with open(filename, "w") as f:
-                f.write(content)
-        except:
-            pass
-
-    @staticmethod
-    def read_file(filename):
-        content = ""
-        try:
-            with open(filename, "r") as f:
-                content = f.read()
-        except:
-            pass
-        return content
-
-    @staticmethod
-    def execute(cmd, stdio=False):
-        shell = isinstance(cmd, str)
-        if stdio:
-            p = subprocess.Popen(cmd, shell=shell, close_fds=True)
-            stdout, stderr = p.communicate()
-            stdout = ""
-        else:
-            p = subprocess.Popen(cmd, shell=shell, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True)
-            stdout, stderr = p.communicate()
-	#if p.returncode != 0:
-	#    logging.error('Failed to execute cmd: %s :%s', cmd, stderr.strip())
-	#else:
-	#    in_ = ' < %s ' % input_ if input_ else ''
-	#    logging.debug('Successful to execute cmd: %s %s:%s', cmd, in_, stdout.strip())
-	return (p.returncode, stdout, stderr)
-
-
-class Action(object):
-    def __init__(self, name):
-        super(self, Action).__init__()
-        self.name = name
-
-class Kind(object):
-    def __init__(self, name):
-        super(self, Kind).__init__()
-        self.name = name
-
-class Resource(object):
-    def __init__(self, name):
-        super(self, Resource).__init__()
-        self.name = name
-
-class KubeOption(object):
-    def __init__(self, raw):
-        super(KubeOption, self).__init__()
-        self.raw = raw
-
-    def _get_option(self, arg):
-        i, _next = -1, None
-        try:
-            i = self.raw.index(arg)
-            _next = self.raw[i+1]
-            if _next.startswith("-"):
-                _next = None
-        except:
-            pass
-        if i < 0:
-            for ii, a in enumerate(self.raw):
-                if a.startswith(arg):
-                    i = ii
-                    _next = a[len(arg):].lstrip("=")
-                    break
-        return i, _next
-
-    def get_output(self):
-        _, output = self._get_option("-o")
-        return  "" if output is None else output
-
-    def is_list(self, output=None):
-        if output is None:
-            output = self.get_output()
-        return not (output.startswith("yaml") or output.startswith("json") or output.startswith("name"))
-
-    def has(self, arg, arg2=None):
-        i, b = self._get_option(arg)
-        if i < 0:
-            return False
-        return arg2 is None or arg2 == b
-
-    def get(self, arg):
-        _, b = self._get_option(arg)
-        return b
-
-    def reset_arg(self, arg, arg2=None):
-        raw = self.raw[:]
-        i, _next = self._get_option(arg)
-        if _next is not None:
-            if raw[i] != arg and len(raw) > i+1:
-                del raw[i+1]
-            del raw[i]
-        elif i>= 0:
-            del raw[i]
-
-        raw.append( arg if arg2 is None else arg + arg2 )
-        return KubeOption(raw)
-
-    def try_set_wide_for_pod(self, kind):
-        if kind == "pod" and self.get("-o") is None:
-            return self.reset_arg("-o", "wide")
-        return KubeOption(self.raw)
 
 class Executor(object):
     def __init__(self, action, kind, resource="", others=""):
@@ -297,7 +180,6 @@ class Executor(object):
             namespace = self.resource[1:]
             if namespace.startswith("."):
                 namespace = {".ks": "kube-system", ".d": "default"}.get(namespace, namespace)
-            hasfilter = True
         elif self.resource.startswith("/") or self.resource.startswith("@"):
             _pattern = self.resource
             namespace = ""
@@ -394,14 +276,14 @@ class Executor(object):
     def extract_namespace_resource_all(self, lines):
         namespace = ""
         resources = []
-        res = do_filter(lines[1:], None, partial(column_extrator, [0, 1]))
+        res = do_filter(lines[1:], None, partial(column_extractor, [0, 1]))
         if res:
             namespace = res[0]
             resources = [ a[1] for a in res ]
         return namespace, resources
 
     def extract_ns_by_name(self, lines, column, name):
-        res = do_filter(lines, get_patter_selector("="+name, column), partial(column_extrator, 0))
+        res = do_filter(lines, get_patter_selector("="+name, column), partial(column_extractor, 0))
         return res[0] if res else ""
         
 
@@ -441,7 +323,7 @@ def test():
     print '====='
     Executor("get", "pod", "test-7d9f4c8b75-4k2c9", []).execute()
 
-def main(argv):
+def main2(argv):
     action = "get"
     kind = ""
     resource = "."
