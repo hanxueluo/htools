@@ -274,7 +274,7 @@ class Executor(object):
                 self.output_result(lines, kind, op.is_list() and resource == "")
                 return
         elif hasfilter:
-            lines = self.kube_execute(namespace, "get", kind, resource, option.reset_arg("-o", "wide"))
+            lines = self.kube_execute(namespace, "get", kind, resource, KubeOption(["-o", "wide"]))
             lines = self.format_namespace(lines, kind, namespace)
             lines = self.format_by_pattern(lines, _pattern)
 
