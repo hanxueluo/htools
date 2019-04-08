@@ -22,6 +22,7 @@ hguess
 kube_alias
 log_cni
 pykube
+pydocker
 vvm
 EOF
 }
