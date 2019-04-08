@@ -330,7 +330,7 @@ class DockerExecutor(object):
     def get_list_action(self):
         return "ls"
 
-    def select_by_lineno(self, lines, kind, linenos):
+    def select_by_lineno(self, lines, linenos):
         if not lines:
             return lines
         def _s(line, ext):
@@ -338,9 +338,7 @@ class DockerExecutor(object):
             b = items[0] in linenos #TODO reduce numbers
             return b, ext
 
-        column = 2 if kind == "image" else 0
-        column += 1
-        return do_filter(lines, _s, partial(column_extractor, column))
+        return do_filter(lines, _s, None)
 
     def extract_id(self, lines, kind):
         if not lines:
@@ -360,10 +358,11 @@ class DockerExecutor(object):
         hasfilter = False
         if self.resource.isdigit():
             lines = Utility.read_file(KUBECTL_GET_TMPFILE + "." + kind).splitlines()
-            items = self.select_by_lineno(lines, kind, [self.resource])
-            if items:
-                self.save_cache(self.del_line_number(lines))
-                resource = items[0]
+            lines = self.select_by_lineno(lines, [self.resource])
+            lines = self.del_line_number(lines)
+            if lines:
+                self.save_cache(lines)
+                resource = self.extract_id(lines, self.kind)[0]
             else:
                 resource = ""
                 hasfilter = True
@@ -419,7 +418,7 @@ class DockerExecutor(object):
         return lines
 
     def confirm_before_do(self, message):
-        print_to_stderr(message, False)
+        Utility.print_to_stderr(message, False)
         try:
             r = raw_input()
         except:
