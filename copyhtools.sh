@@ -6,30 +6,17 @@ if test -z "$1";then
     exit 1
 fi
 
+cd $(dirname $0)
+
 list_file() {
-    cat <<EOF
-#calicoctl
-#etcdctl
-#ipvsadm
-#ixcalc
-#kubectl
-*.sh
-*.py
-alias_pykube
-hovs
-hss
-hguess
-kube_alias
-log_cni
-pykube
-pydocker
-vvm
-EOF
+    find .  -maxdepth 1 -size -1000k -type f
+    echo .git
+    echo .gitignore
 }
 
 rm -rf /tmp/htools/
 mkdir /tmp/htools
 cp -a `list_file |grep -v '^#'|xargs` /tmp/htools/
 
-./hss u "$1" /tmp/htools/ /root/
-exec ./hss "$1"
+./hss u "$1" /tmp/htools/ /root/ &&
+    ./hss "$1"
