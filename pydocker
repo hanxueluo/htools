@@ -299,7 +299,7 @@ class DockerExecutor(object):
                 args += ["bash"]
 
         Utility.print_to_stderr(" ".join(args))
-        use_stdout = action in ["exec", "logs", "stats", "top"]
+        use_stdout = action in ["exec", "logs", "stats", "top", "prune"]
         try:
             dec = DockerExtraCommand(kind, action, resource, option, self.cache)
             yes, code, out, err = dec.run()
@@ -330,6 +330,9 @@ class DockerExecutor(object):
 
     def get_list_action(self):
         return "ls"
+
+    def accept_no_resource(self, action):
+        return action == "prune"
 
     def select_by_lineno(self, lines, linenos):
         if not lines:
@@ -396,15 +399,18 @@ class DockerExecutor(object):
             resources = self.extract_id(lines, kind)
             resource = " ".join(resources)
 
+        option = self.get_option(option.raw)
         if not resource:
-            action = self.get_list_action()
+            if not self.accept_no_resource(action):
+                action = self.get_list_action()
+                option = self.get_option([])
 
         if action in ["rm"] and " " in resource:
             if not self.confirm_before_do("\nAre you sure to %s %s %s? (y/n) " % (action, kind, "\n\t" + resource.replace(" ", "\n\t") + "\n")):
                 print_to_stderr("Aborted.")
                 return
 
-        lines = self.raw_execute(kind, action, resource, self.get_option(option.raw))
+        lines = self.raw_execute(kind, action, resource, option)
         print "\n".join(lines)
 
     def output_result(self, lines, kind, tofile):
