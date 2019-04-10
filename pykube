@@ -292,7 +292,7 @@ class Executor(object):
                 print_to_stderr("Aborted.")
                 return
 
-        lines = self.kube_execute(namespace, action, kind, resource, KubeOption(option.raw + self.others))
+        lines = self.kube_execute(namespace, action, kind, resource, option)
         print "\n".join(lines)
 
     def format_namespace(self, lines, kind, namespace):
