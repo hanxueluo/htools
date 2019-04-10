@@ -260,6 +260,7 @@ class DockerExecutor(object):
                 "i": "inspect",
                 "k": "kill",
                 "l": "logs",
+                "h": "history",
                 "x": "exec"
                 }.get(action, action)
         self.kind = kind
