@@ -334,6 +334,9 @@ class DockerExecutor(object):
     def accept_no_resource(self, action):
         return action == "prune"
 
+    def risky_for_batch(self, action):
+        return action == "rm"
+
     def select_by_lineno(self, lines, linenos):
         if not lines:
             return lines
@@ -405,9 +408,9 @@ class DockerExecutor(object):
                 action = self.get_list_action()
                 option = self.get_option([])
 
-        if action in ["rm"] and " " in resource:
+        if " " in resource and self.risky_for_batch(action):
             if not self.confirm_before_do("\nAre you sure to %s %s %s? (y/n) " % (action, kind, "\n\t" + resource.replace(" ", "\n\t") + "\n")):
-                print_to_stderr("Aborted.")
+                Utility.print_to_stderr("Aborted.")
                 return
 
         lines = self.raw_execute(kind, action, resource, option)
