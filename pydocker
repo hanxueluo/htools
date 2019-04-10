@@ -1,7 +1,16 @@
 #!/usr/bin/env python
-
 # TODO LIST:
-# . do not do all if no match
+# doi copy N ==> display copiable tag
+# doi repo // /etc/hosts ... # pydocker: AIALS:REPO
+# doi rm N ==> tag > id
+# doi pull N
+# doi tag  N REPO
+# doi tag  N REPO:TAG
+# doi tag  N -t TAG
+# doi push N
+# doi push N REPO
+# doi push N REPO:TAG
+# doi push N -t TAG
 
 import os
 import subprocess
