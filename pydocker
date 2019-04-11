@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # TODO LIST:
-# doi copy N ==> display copiable tag
 # doi repo // /etc/hosts ... # pydocker: AIALS:REPO
+# doi dis N ==> display copiable tag
 # doi rm N ==> tag > id
 # doi pull N
 # doi tag  N REPO
 # doi tag  N REPO:TAG
 # doi tag  N -t TAG
 # doi push N
-# doi push N REPO
-# doi push N REPO:TAG
-# doi push N -t TAG
+## doi push N REPO
+## doi push N REPO:TAG
+## doi push N -t TAG
 
 import os
 import subprocess
@@ -45,19 +45,30 @@ class DockerExtraCommand(object):
         self.cache = cache
 
     def run(self):
-        if not (self.kind == "container" and self.action in ["ks", "nx", "u", "d"]):
-            return False, 0, "", ""
-        if self.action == "ks":
-            code, out, err  = self.cmd_kube_ls()
-        elif self.action == "nx":
-            code, out, err  = self.cmd_netns_execute()
-        elif self.action == "u":
-            code, out, err  = self.cmd_copy_upload()
-        elif self.action == "d":
-            code, out, err  = self.cmd_copy_download()
-        else:
-            code, out, err  = 2, "", "not implemented"
-        return True, code, out, err
+        if self.kind == "container":
+            if not self.action in ["ks", "nx", "u", "d"]:
+                return False, 0, "", ""
+            if self.action == "ks":
+                code, out, err  = self.cmd_kube_ls()
+            elif self.action == "nx":
+                code, out, err  = self.cmd_netns_execute()
+            elif self.action == "u":
+                code, out, err  = self.cmd_copy_upload()
+            elif self.action == "d":
+                code, out, err  = self.cmd_copy_download()
+            else:
+                code, out, err  = 2, "", "not implemented"
+            return True, code, out, err
+        elif self.kind == "image":
+            if not self.action in ["dis", "repo"]:
+                return False, 0, "", ""
+            if self.action == "dis":
+                code, out, err  = self.cmd_tag_dis()
+            elif self.action == "repo":
+                code, out, err  = self.cmd_repo_ls()
+            else:
+                code, out, err  = 2, "", "not implemented"
+            return True, code, out, err
 
     def _load_one_container_data(self, config_file):
         d = {}
@@ -261,12 +272,23 @@ class DockerExtraCommand(object):
                 break
         return code, "", ""
 
+    def cmd_tag_dis(self):
+        out = "\n".join(self.resource.split())
+
+    def cmd_repo_ls(self):
+        repos = []
+        for line in Utility.read_file("/tmp/hosts").splitlines():
+            if "# cargo:" in line:
+                items = line.lstrip("#").strip().split()
+                repos.append(items)
+        print repos
+        return 0, line, ""
+
 
 class DockerExecutor(object):
     def __init__(self, kind, action, resource="", others=""):
         super(DockerExecutor, self).__init__()
-        self.action = {
-                "i": "inspect",
+        self.action = { "i": "inspect",
                 "k": "kill",
                 "l": "logs",
                 "h": "history",
@@ -280,6 +302,16 @@ class DockerExecutor(object):
     def save_cache(self, lines):
         self.cache = lines
 
+    def unpack_image_id(self, ids):
+        res = ""
+        for one in ids.split():
+            repo, tag, id_ = one.split("|")
+            if tag != "<none>":
+                res += "%s:%s " % (repo, tag)
+            else:
+                res += id_ + " "
+        return res.rstrip()
+
     def raw_execute(self, kind, action, resource, option):
         if action == "ls" and kind == "container":
             if option.has("-d"):
@@ -288,13 +320,9 @@ class DockerExecutor(object):
             else:
                 action = "ks"
 
-        if action == "push" and kind == "image":
-            lines = find_in_cache(self.cache, kind, resource)
-            resource = ""
-            for line in lines:
-                items = line.split()
-                resource += "%s:%s " % (items[0], items[1])
-            resource = resource.strip()
+        if kind == "image":
+            if resource:
+                resource = self.unpack_image_id(resource)
 
         args = " ".join([
                 "docker",
@@ -341,7 +369,7 @@ class DockerExecutor(object):
         return "ls"
 
     def accept_no_resource(self, action):
-        return action == "prune"
+        return action in ["prune", "repo"]
 
     def risky_for_batch(self, action):
         return action == "rm"
@@ -359,8 +387,10 @@ class DockerExecutor(object):
     def extract_id(self, lines, kind):
         if not lines:
             return lines
-        column = 2 if kind == "image" else 0
-        return do_filter(lines, None, partial(column_extractor, column))
+        f = partial(column_extractor, 0)
+        if kind == "image":
+            f = lambda l: "|".join(l.split()[0:3])
+        return do_filter(lines, None, f)
 
     def execute(self):
         _pattern = ""
