@@ -325,12 +325,16 @@ class Executor(object):
         return lines
 
     def filter_by_pattern(self, lines, pattern):
+        if not lines:
+            return lines
         lines2 = []
+        title = lines[0]
+        if title.startswith("NAME ") or title.startswith("NAMESPACE "):
+            lines2.append(title)
+            lines = lines[1:]
+
         rr = re.compile(pattern[1:])
         for line in lines:
-            if line.startswith("NAME ") or line.startswith("NAMESPACE "):
-                lines2.append(line)
-                continue
             if rr.search(line):
                 if pattern[0] == "/":
                     lines2.append(line)
