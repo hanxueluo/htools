@@ -205,12 +205,12 @@ class Executor(object):
         if not lines:
             return lines
 
-        cmd = "kubectl get node -o=custom-columns=NAME:.metadata.name,ADDRESS:.status.addresses[0].address"
+        cmd = "kubectl get node -o=custom-columns=NAME:.metadata.name,ADDRESS:.status.addresses[0].address,podCIDR:.spec.podCIDR"
         out = Utility.execute(cmd)[1]
         ips = {}
         for l in out.splitlines():
-            k, v = l.split()
-            ips[k] = v
+            k, v = l.split(" ", 1)
+            ips[k] = v.lstrip()
         lines2 = []
         for l in lines:
             n = l.split()[0]
