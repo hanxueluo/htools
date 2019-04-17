@@ -1,16 +1,12 @@
 #!/usr/bin/env python
 # TODO LIST:
+# support multiple do
+
 # doi repo // /etc/hosts ... # pydocker: AIALS:REPO
 # doi dis N ==> display copiable tag
-# doi rm N ==> tag > id
+
+### doi rm N ==> tag > id
 # doi pull N
-# doi tag  N REPO
-# doi tag  N REPO:TAG
-# doi tag  N -t TAG
-# doi push N
-## doi push N REPO
-## doi push N REPO:TAG
-## doi push N -t TAG
 
 import os
 import subprocess
@@ -314,6 +310,55 @@ class DockerExecutor(object):
                 res += id_ + " "
         return res.rstrip()
 
+    def complete_tag_arg(self, resource, option):
+        repo_shortcut = {
+                "do": "cargo-infra.caicloud.xyz/devops_release/",
+                "net": "net.caicloudprivatetest.com/release/",
+                "test": "test.caicloudprivatetest.com/release/",
+                "cg": "cargo.caicloudprivatetest.com/caicloud/",
+                "ra": "regression-a.cargo.io/release/",
+                "rb": "regression-b.cargo.io/release/",
+                "rc": "regression-c.cargo.io/release/",
+                }
+
+        src = resource.split()[0]
+
+        if not option.raw:
+            return src, "", ""
+        dst = option.raw[0].strip("/")
+        dst_repo = ""
+        dst_tag = ""
+        if ":" in dst:
+            if dst[0] != ":": # dst == "REPO:TAG"
+                dst_repo, dst_tag = dst.split(":", 1)
+                dst_repo = repo_shortcut.get(dst_repo, dst_repo)
+            else: # dst == ":TAG"
+                dst_tag = dst[1:]
+        else:
+            dst_repo = repo_shortcut.get(dst, dst)
+
+        if ":" in src: # src is a tag"
+            src_repo, src_tag = src.split(":", 1)
+        else:
+            if dst_repo == "" or dst_tag == "" or dst_repo.endswith("/"):
+                return src, "", ""
+
+        if dst_tag == "":
+            dst_tag = src_tag
+
+        if dst_repo == "":
+            dst_repo = src_repo
+
+        if "/" in dst_repo: # dst_repo == "domain/path"
+            if dst_repo.split("/")[-1] == src_repo.split("/")[-1]: # dst_repo is full path
+                pass
+            else:
+                dst_repo = dst_repo.strip("/") + "/" + src_repo.split("/")[-1]
+        else:  # dst_repo == "domain"
+            dst_repo = dst_repo.strip("/") + "/" + src_repo.split("/", 1)[-1]
+
+        return src, dst_repo, dst_tag
+
     def raw_execute(self, kind, action, resource, option):
         if action == "ls" and kind == "container":
             if option.has("-d"):
@@ -325,6 +370,21 @@ class DockerExecutor(object):
         if kind == "image":
             if resource:
                 resource = self.unpack_image_id(resource)
+
+        if action == "tag":
+            resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
+            dst = "%s:%s" % (dst_repo, dst_tag)
+            option = CmdOption([dst])
+
+        if action == "push":
+            resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
+            dst = "%s:%s" % (dst_repo, dst_tag)
+            if dst != ":":
+                args =  "docker image tag %s %s" % (resource, dst)
+                Utility.print_to_stderr(args)
+                code, _, _ = Utility.execute(args.split(), True)
+                resource = dst
+                option = CmdOption([])
 
         args = " ".join([
                 "docker",
