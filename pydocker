@@ -386,6 +386,13 @@ class DockerExecutor(object):
                 resource = dst
                 option = CmdOption([])
 
+        if action == "pull":
+            resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
+            dst = "%s:%s" % (dst_repo, dst_tag)
+            if dst != ":":
+                resource = dst
+                option = CmdOption([])
+
         args = " ".join([
                 "docker",
                 kind,
