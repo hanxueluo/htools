@@ -354,10 +354,20 @@ class Executor(object):
     def extract_namespace_resource_all(self, lines):
         namespace = ""
         resources = []
+        if not lines:
+            return namespace, resources
+
+        ns = lines[0].split()[0]
+        id_index = 1 if ns in ["NS", "NAMESPACE"] else 0
+
         for line in lines[1:]:
             items = line.split()
             namespace = items[0]
-            resources.append(items[1])
+            resources.append(items[id_index])
+
+        if id_index == 0:
+            namespace = "-"
+
         return namespace, resources
 
     def extract_ns_by_name(self, lines, column, name):
