@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # TODO LIST:
 # support multiple do
+# doi run N ==> docker run --rm -it --entrypoint=bash $tag
+# doi $action 0 ==> docker $action lastest_image
+
+# list veth, list ip for "doc ls"
+# list pid and nx for "doc ls -d"
 
 # doi repo // /etc/hosts ... # pydocker: AIALS:REPO
 # doi dis N ==> display copiable tag
@@ -101,6 +106,7 @@ class DockerExtraCommand(object):
         id_ = js[u"ID"][:12]
         d = {
                 "id": id_,
+                "driver": pid,
                 "pid": pid,
                 "ip": ip,
                 "pname": pname,
@@ -275,7 +281,7 @@ class DockerExtraCommand(object):
 
     def cmd_repo_ls(self):
         repos = []
-        for line in Utility.read_file("/tmp/hosts").splitlines():
+        for line in Utility.read_file("/etc/hosts").splitlines():
             if "# cargo:" in line:
                 items = line.lstrip("#").strip().split()
                 repos.append(items)
