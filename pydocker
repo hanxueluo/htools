@@ -337,10 +337,10 @@ class DockerExecutor(object):
         else:
             dst_repo = repo_shortcut.get(dst, dst)
 
+        src_repo, src_tag = "", ""
         if ":" in src: # src is a tag"
             src_repo, src_tag = src.split(":", 1)
         else:
-            src_repo, src_tag = "", ""
             if dst_repo == "" or dst_tag == "" or dst_repo.endswith("/"):
                 return src, "", ""
 
@@ -350,7 +350,7 @@ class DockerExecutor(object):
         if dst_repo == "":
             dst_repo = src_repo
 
-        if src_repo:
+        if "/" in src_repo:
             if "/" in dst_repo: # dst_repo == "domain/path"
                 if dst_repo.split("/")[-1] == src_repo.split("/")[-1]: # dst_repo is full path
                     pass
