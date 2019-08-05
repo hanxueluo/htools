@@ -71,6 +71,7 @@ do_action() {
             _execute scp -oStrictHostKeyChecking=no $dst_ip:$src "$dst"
         fi
     elif [ "$ACTION" = fxxk ];then
+        update_ssh_known_hosts $dst_ip
         if pw=$(try_pws $dst_ip $passwd);then
             update_dict_file $dst $dst_ip $pw
             shift

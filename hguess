@@ -30,6 +30,12 @@ complete_dict() {
     done < ~/.hss_pw_dict
 }
 
+update_ssh_known_hosts() {
+    local dst_ip=$1
+    grep -vw $dst_ip ~/.ssh/known_hosts > /tmp/ssh_known_hosts
+    mv /tmp/ssh_known_hosts ~/.ssh/known_hosts
+}
+
 update_dict_file() {
     local dst=$1
     local dst_ip=$2
@@ -39,9 +45,6 @@ update_dict_file() {
         echo "$dst $dst_ip $pw"
     } > /tmp/hss_pw_dict_tmp
     mv /tmp/hss_pw_dict_tmp ~/.hss_pw_dict
-
-    grep -vw $dst_ip ~/.ssh/known_hosts > /tmp/ssh_known_hosts
-    mv /tmp/ssh_known_hosts ~/.ssh/known_hosts
 }
 
 try_pws() {
