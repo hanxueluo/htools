@@ -22,6 +22,44 @@ DICT=( \
     [app]="192.168.19.0 $DEFAULT_PASSWD" \
     [net]="192.168.128.141" )
 
+complete_dict() {
+    test -r ~/.hss_pw_dict || return
+    while read k v
+    do
+        DICT["$k"]="$v"
+    done < ~/.hss_pw_dict
+}
+
+update_dict_file() {
+    local dst=$1
+    local dst_ip=$2
+    local pw=$3
+    {
+        grep -vw $dst_ip ~/.hss_pw_dict
+        echo "$dst $dst_ip $pw"
+    } > /tmp/hss_pw_dict_tmp
+    mv /tmp/hss_pw_dict_tmp ~/.hss_pw_dict
+
+    grep -vw $dst_ip ~/.ssh/known_hosts > /tmp/ssh_known_hosts
+    mv /tmp/ssh_known_hosts ~/.ssh/known_hosts
+}
+
+try_pws() {
+    local ip=$1
+    local default_pw=$2
+    for pw in $default_pw $TRY_PASSWD $DEFAULT_PASSWD
+    do
+        if sshpass -p "$pw" ssh root@$ip echo hello 2>/dev/null | grep -wq hello;then
+            echo $pw
+            return 0
+        fi
+    done
+    return 1
+}
+
+
+complete_dict
+
 do_guess() {
     local dst=$1
     local res=

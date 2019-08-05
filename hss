@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+PROCESS=$0
 
 test -z "$1" && exit 1
 cd $(dirname $0)
@@ -26,6 +27,7 @@ _execute() {
         exec "$@"
     fi
 }
+
 
 do_action() {
     local dst="$1"
@@ -68,6 +70,13 @@ do_action() {
         else
             _execute scp -oStrictHostKeyChecking=no $dst_ip:$src "$dst"
         fi
+    elif [ "$ACTION" = fxxk ];then
+        if pw=$(try_pws $dst_ip $passwd);then
+            update_dict_file $dst $dst_ip $pw
+            shift
+            shift
+            exec $PROCESS $dst "$@"
+        fi
     fi
     exit
 
@@ -92,6 +101,8 @@ if [ "$1" = u ];then
 elif [ "$1" = d ];then
     ACTION=download
     shift
+elif [ "$2"  = fxxk ];then
+    ACTION=fxxk
 fi
 
 do_action "$@"
