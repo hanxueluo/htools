@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # TODO LIST:
 # support multiple do
-# doi run N ==> docker run --rm -it --entrypoint=bash $tag
 # doi $action 0 ==> docker $action lastest_image
 
 # list veth, list ip for "doc ls"
@@ -388,9 +387,10 @@ class DockerExecutor(object):
         return src, dst_repo, dst_tag
 
     def raw_execute(self, kind, action, resource, option):
+        opt = CmdOption(option.raw)
         if action == "ls" and kind == "container":
             if option.has("-d"):
-                option = option.remove_arg("-d")
+                opt = option.remove_arg("-d")
                 resource = ""
             else:
                 action = "ks"
@@ -402,7 +402,7 @@ class DockerExecutor(object):
         if action == "tag":
             resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
             dst = "%s:%s" % (dst_repo, dst_tag)
-            option = CmdOption([dst])
+            opt = CmdOption([dst])
 
         if action == "push":
             resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
@@ -412,30 +412,42 @@ class DockerExecutor(object):
                 Utility.print_to_stderr(args)
                 code, _, _ = Utility.execute(args.split(), True)
                 resource = dst
-                option = CmdOption([])
+                opt = CmdOption([])
 
         if action == "pull":
             resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
             dst = "%s:%s" % (dst_repo, dst_tag)
             if dst != ":":
                 resource = dst
-                option = CmdOption([])
+                opt = CmdOption([])
+
+        if action == "run":
+            kind = "container"
+            opt = CmdOption([])
 
         args = " ".join([
                 "docker",
                 kind,
                 action,
                 resource
-                ]).split() + option.raw
+                ]).split() + opt.raw
+
         if action == "exec":
             args.insert(3, "-it")
             if not option.raw:
                 args += ["bash"]
+        if action == "run":
+            args.insert(3, "--rm")
+            if option.raw:
+                args.insert(4, "-it")
+                args.insert(5, "--entrypoint")
+                args.insert(6, " ".join(option.raw))
+            opt = CmdOption([])
 
         Utility.print_to_stderr(" ".join(args))
-        use_stdout = action in ["exec", "logs", "stats", "top", "prune", "push", "pull"]
+        use_stdout = action in ["exec", "logs", "stats", "top", "prune", "push", "pull", "run"]
         try:
-            dec = DockerExtraCommand(kind, action, resource, option, self.cache)
+            dec = DockerExtraCommand(kind, action, resource, opt, self.cache)
             yes, code, out, err = dec.run()
             if not yes:
                 code, out, err = Utility.execute(args, use_stdout)
