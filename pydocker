@@ -316,7 +316,7 @@ class DockerExecutor(object):
                 res += id_ + " "
         return res.rstrip()
 
-    def complete_tag_arg(self, resource, option):
+    def complete_tag_repo(self, repo):
         repo_shortcut = {
                 "do": "cargo-infra.caicloud.xyz/devops_release/",
                 "net": "net.caicloudprivatetest.com/release/",
@@ -325,7 +325,27 @@ class DockerExecutor(object):
                 "ra": "regression-a.cargo.io/release/",
                 "rb": "regression-b.cargo.io/release/",
                 "rc": "regression-c.cargo.io/release/",
+                "n": "net.caicloudprivatetest.com",
+                "c": "cargo.caicloudprivatetest.com",
+                "i": "cargo-infra.caicloud.xyz",
                 }
+        path_shortcut = {
+                "l": "library", "c": "caicloud", "r": "release", "d": "devops_release",
+                }
+
+        if repo in repo_shortcut:
+            return repo_shortcut.get(repo, repo)
+        if "/" not in repo:
+            return repo
+
+        items = repo.split("/")
+        a = repo_shortcut.get(items[0], items[0])
+        b = path_shortcut.get(items[1], items[1])
+        items2 = [a, b]
+        items2.extend(items[2:])
+        return "/".join(items2)
+
+    def complete_tag_arg(self, resource, option):
 
         src = resource.split()[0]
 
@@ -337,11 +357,11 @@ class DockerExecutor(object):
         if ":" in dst:
             if dst[0] != ":": # dst == "REPO:TAG"
                 dst_repo, dst_tag = dst.split(":", 1)
-                dst_repo = repo_shortcut.get(dst_repo, dst_repo)
+                dst_repo = self.complete_tag_repo(dst_repo)
             else: # dst == ":TAG"
                 dst_tag = dst[1:]
         else:
-            dst_repo = repo_shortcut.get(dst, dst)
+            dst_repo = self.complete_tag_repo(dst)
 
         src_repo, src_tag = "", ""
         if ":" in src: # src is a tag"
