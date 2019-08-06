@@ -19,4 +19,4 @@ mkdir /tmp/htools
 cp -a `list_file |grep -v '^#'|xargs` /tmp/htools/
 
 ./hss u "$1" /tmp/htools/ /root/ &&
-    ./hss "$1"
+    ./hss "$@"
