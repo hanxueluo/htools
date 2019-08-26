@@ -15,6 +15,8 @@ proto = []
 
 
 def get_content(self):
+    status = 200
+
     s = "Host: %s\n" % socket.gethostname()
     s += "Proto: %s\n" % proto
     s += "C->S: %s -> %s\n" % (self.connection.getpeername(), self.connection.getsockname())
@@ -23,6 +25,8 @@ def get_content(self):
     s += "  Head:\n"
     for k, v in self.headers.items():
         s += "    %s: %s\n" % (k, v)
+        if k.lower() == "httpstatus":
+            status = int(v) if v.isdigit() else 400
 
     l = self.headers.get("L", "")
     if l.isdigit():
@@ -32,14 +36,15 @@ def get_content(self):
     #agent = self.headers.get("User-Agent", "")
     s = "<html><body><pre>\n%s\n</pre></body></html>\n" % s
     #import pdb;pdb.set_trace()
-    return s.encode("utf-8")
+
+    return status, s.encode("utf-8")
 
 
 def do_GET2(self):
-    msg = get_content(self)
+    status, msg = get_content(self)
     print(self.headers)
 
-    self.send_response(200)
+    self.send_response(status)
     self.send_header("Content-type", "text/html")
     self.end_headers()
     self.wfile.write(msg)
