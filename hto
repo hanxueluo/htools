@@ -18,5 +18,5 @@ rm -rf /tmp/htools/
 mkdir /tmp/htools
 cp -a `list_file |grep -v '^#'|xargs` /tmp/htools/
 
-./hss u "$1" /tmp/htools/ /root/ &&
+./hss u "$1" /tmp/htools/ '~/' &&
     ./hss "$@"
