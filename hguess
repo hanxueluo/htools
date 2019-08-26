@@ -19,7 +19,6 @@ declare -A DICT
 
 DICT=( \
     [pc]="$PC_IP" \
-    [app]="192.168.19.0 $DEFAULT_PASSWD" \
     [net]="192.168.128.141" )
 
 complete_dict() {
@@ -89,6 +88,9 @@ do_guess() {
         dst_ip=192.$dst
         passwd=$DEFAULT_PASSWD
     elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$";then
+        dst_ip=$dst
+        passwd=$DEFAULT_PASSWD
+    elif echo "$dst" | grep -q "^.*@[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$";then
         dst_ip=$dst
         passwd=$DEFAULT_PASSWD
     else
