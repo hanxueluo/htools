@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 PYKUBE=
-for pykube in $ /root/hroot/htools/pykube ~/work/htools/pykube /root/htools/pykube
+for pykube in $ /root/hroot/htools/pykube ~/work/htools/pykube ~/htools/pykube
 do
     if test -e "$pykube";then
         PYKUBE=$pykube
@@ -84,7 +84,7 @@ EOF
 
 _k_setup_docker_alias() {
     local PYDOCKER=
-    for file in /root/hroot/htools/pydocker ~/work/htools/pydocker /root/htools/pydocker
+    for file in /root/hroot/htools/pydocker ~/work/htools/pydocker ~/htools/pydocker
     do
         if test -e "$file";then
             PYDOCKER=$file
