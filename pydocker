@@ -21,6 +21,7 @@ import glob
 import json
 
 KUBECTL_GET_TMPFILE="/tmp/hhl.docker_alias/get.tmpfile"
+KUBECTL_GET_LAST_ITEM="/tmp/hhl.docker_alias/get.last"
 
 tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
 if not os.path.isdir(tmpdir):
@@ -402,6 +403,8 @@ class DockerExecutor(object):
         if action == "tag":
             resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
             dst = "%s:%s" % (dst_repo, dst_tag)
+            with open(KUBECTL_GET_LAST_ITEM + "." + kind, "w") as f:
+                f.write("0 %s %s _ _ _\n" % (dst_repo, dst_tag))
             opt = CmdOption([dst])
 
         if action == "push":
@@ -511,7 +514,10 @@ class DockerExecutor(object):
         # 1. expand namespace and resource
         hasfilter = False
         if self.resource.isdigit():
-            lines = Utility.read_file(KUBECTL_GET_TMPFILE + "." + kind).splitlines()
+            if self.resource != "0":
+                lines = Utility.read_file(KUBECTL_GET_TMPFILE + "." + kind).splitlines()
+            else:
+                lines = Utility.read_file(KUBECTL_GET_LAST_ITEM + "." + kind).splitlines()
             lines = self.select_by_lineno(lines, [self.resource])
             lines = self.del_line_number(lines)
             if lines:
