@@ -1,0 +1,66 @@
+#!/bin/bash
+
+ensure_code() {
+    local rlink=$(readlink /usr/local/bin/code)
+    if test -n "$rlink" && test -e $rlink;then
+        return
+    fi
+    vscodeapp=$(find /private/var/folders -name "vscode.app" -type d 2>/dev/null |head -1 || true)
+    if test -n "$vscodeapp";then
+        ln -sf $vscodeapp/Contents/Resources/app/bin/code /usr/local/bin/code
+    fi
+    return
+}
+
+find_module() {
+    local module=$1
+    if test -z "$module";then
+        echo "Empty module" >&2
+        exit 1
+    fi
+
+    {
+        ls -d ~/go/src/github.com/*/$module/  2>/dev/null
+        ls -d ~/go/src/k8s.io/$module/  2>/dev/null
+        ls -d ~/work/$module/  2>/dev/null
+    } | head -1
+    return 0
+}
+
+generate_ws_content() {
+    local path=${1}
+cat <<EOF
+{
+	"folders": [
+		{
+			"path": "$path"
+
+		} ]
+}
+EOF
+}
+
+
+
+module=$1
+
+if [ "$module" = "." ];then
+    module=$(basename $(pwd))
+fi
+
+ws=$module.code-workspace
+
+mkdir -p ~/work/workspaces/
+cd ~/work/workspaces/
+if ! test -e "$ws";then
+    path=$(find_module $module)
+    if test -z "$path";then
+        echo no module $1 found
+        exit 1
+    fi
+    generate_ws_content $path |tee $ws
+fi
+
+ensure_code
+
+code $ws
