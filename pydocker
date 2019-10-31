@@ -19,6 +19,7 @@ import re
 from cmdindex import *
 import glob
 import json
+import platform
 
 KUBECTL_GET_TMPFILE="/tmp/hhl.docker_alias/get.tmpfile"
 KUBECTL_GET_LAST_ITEM="/tmp/hhl.docker_alias/get.last"
@@ -394,7 +395,7 @@ class DockerExecutor(object):
                 opt = option.remove_arg("-d")
                 resource = ""
             else:
-                action = "ks"
+                action = "ls" if platform.system() != "Linux" else "ks"
 
         if kind == "image":
             if resource:
