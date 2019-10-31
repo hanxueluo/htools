@@ -51,7 +51,7 @@ try_pws() {
     local default_pw=$2
     for pw in $default_pw $TRY_PASSWD $DEFAULT_PASSWD
     do
-        if sshpass -p "$pw" ssh root@$ip echo hello 2>/dev/null | grep -wq hello;then
+        if sshpass -p "$pw" ssh -o StrictHostKeyChecking=no root@$ip echo hello 2>/dev/null | grep -wq hello;then
             echo $pw
             return 0
         fi
