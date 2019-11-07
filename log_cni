@@ -47,23 +47,20 @@ cni=/opt/cni/bin/$cni
 
 stdin=
 {
-    echo "=========S=$(date)= $cni $@ === $id"
+    echo "=========S=$CNI_COMMAND: $(date)= $cni $@ === $id"
     echo "env:"
     printenv |grep CNI_ |sort
     stdin=$(timeout 2 cat)
     echo "stdin:"
     echo "$stdin"
 
-} >> $logfile
+    res=$(echo "$stdin" | $cni "$@")
+    code=$?
 
-res=$(echo "$stdin" | $cni "$@")
-code=$?
-echo "$res"
-
-{
     echo "res: $code, $res"
     echo "=========E== $cni $@ ===time use: $SECONDS == $id"
     echo ""
 
 } >>$logfile
+echo "$res"
 exit $code
