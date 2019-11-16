@@ -197,11 +197,11 @@ class Executor(object):
 
         lines = out.splitlines()
         if code == 0 and out and action == "get" and kind == "node" and option.is_list():
-            lines = self._patch_ndoe_ip(lines)
+            lines = self._patch_node_ip(lines)
 
         return lines
 
-    def _patch_ndoe_ip(self, lines):
+    def _patch_node_ip(self, lines):
         if not lines:
             return lines
 
