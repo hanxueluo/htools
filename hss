@@ -47,7 +47,7 @@ do_action() {
         test -n "$dst" || dst=/root/
 
         if test -f "$src";then
-            _execute scp -oStrictHostKeyChecking=no $src "$dst_ip":"$dst"
+            _execute scp -oStrictHostKeyChecking=no $src "[$dst_ip]":"$dst"
         elif test -d "$src";then
             local src_parent=$(dirname $src)
             local src_filename=$(basename $src)
@@ -68,7 +68,7 @@ do_action() {
             _execute ssh -oStrictHostKeyChecking=no "$dst_ip" tar czf - -C "$src_parent" "$src_filename"  \
                 | { cd "$dst" && tar zxf - ; }
         else
-            _execute scp -oStrictHostKeyChecking=no $dst_ip:$src "$dst"
+            _execute scp -oStrictHostKeyChecking=no [$dst_ip]:$src "$dst"
         fi
     elif [ "$ACTION" = fxxk ];then
         update_ssh_known_hosts $dst_ip
