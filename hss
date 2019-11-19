@@ -75,7 +75,6 @@ do_action() {
         if pw=$(try_pws $dst_ip $passwd);then
             update_dict_file $dst $dst_ip $pw
             shift
-            shift
             exec $PROCESS $dst "$@"
         fi
     fi

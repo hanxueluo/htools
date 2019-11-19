@@ -18,5 +18,12 @@ rm -rf /tmp/htools/
 mkdir /tmp/htools
 cp -a `list_file |grep -v '^#'|xargs` /tmp/htools/
 
-./hss u "$1" /tmp/htools/ '~/' &&
-    ./hss "$@"
+dst=$1
+shift
+op=$1
+if [ "$op" = fxxk ];then
+    shift
+    ./hss "$dst" fxxk echo fxxked
+fi
+./hss u "$dst" /tmp/htools/ '~/' &&
+    ./hss "$dst" "$@"
