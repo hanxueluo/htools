@@ -9,6 +9,17 @@ import sys
 import re
 
 KUBECTL_GET_TMPFILE="/tmp/hhl.kubectl_alias/get.tmpfile"
+"""
+spec:
+  template:
+    spec:
+      containers:
+      - name: c0
+        image: net.caicloudprivatetest.com/release/nginx:1.15.5-alpine-2
+
+"spec":{"template":{"spec":{"containers":[{"image":"net.caicloudprivatetest.com/release/nginx:1.15.5-alpine-4","name":"c0",}],}}}
+kubectl -n kube-system patch deployment nginx --patch "$(cat a.yaml)"
+"""
 
 tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
 if not os.path.isdir(tmpdir):
@@ -153,6 +164,8 @@ class Executor(object):
             resource = ss[1]
         return kind, resource
 
+    def kube_get_image(self, namespace, action, kind, resource, option):
+        pass
     def kube_execute(self, namespace, action, kind, resource, option):
         if namespace == "":
             namespace = "--all-namespaces"
@@ -171,6 +184,10 @@ class Executor(object):
         elif action == "get":
             if kind == "pod" and not option.raw:
                 option = option.try_set_wide_for_pod(kind)
+        elif action == "update":
+            code, out, err = Utility.execute(["kubectl", "get", namespace, kind, resource , "-ojson"], False)
+            print out
+            sys.exit(1)
 
         args = " ".join([
                 "kubectl",
