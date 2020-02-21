@@ -24,32 +24,25 @@ setup_port() {
 }
 
 setup_tcp() {
-    mkdir /TCP
-    cd /TCP/
-    cp /Common_file/TCP_server.py ./
-    touch index.html
-    echo "TCP socket from $hostname" > index.html
+    cd /Common_file/
     python TCP_server.py $tcp_port &
 }
 
 
 setup_udp() {
-    mkdir /UDP; cd /UDP/;
-    cp /Common_file/UDP_server.py ./;
-    touch index.html; echo "UDP socket from $hostname" > index.html;
+    cd /Common_file/
     python UDP_server.py $udp_port &
 }
 
 setup_http() {
-    mkdir /HTTP/ && cd /HTTP/
+    cd /Common_file/
     cp /Common_file/http2.py ./http.py;
     python http.py $http_port &
 }
 
 setup_https() {
-    mkdir /HTTPS && cd /HTTPS/
-    cp /Common_file/http2.py ./https.py;
-    cp /Common_file/cert/* ./;
+    cd /Common_file/cert/
+    cp /Common_file/http2.py /Common_file/cert/https.py;
     python https.py $https_port
 }
 

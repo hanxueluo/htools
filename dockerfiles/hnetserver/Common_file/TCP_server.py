@@ -1,5 +1,13 @@
 import SocketServer
 import sys
+import http2
+
+def get_content(self, socket, data):
+    data2 = http2.parse_as_header(data)
+
+    status, msg = http2.get_content2("tcp", socket.getpeername(), socket.getsockname(), "/", data2)
+    return msg
+
 
 class MyTCPHandler(SocketServer.BaseRequestHandler):
     """
@@ -11,18 +19,11 @@ class MyTCPHandler(SocketServer.BaseRequestHandler):
     """
 
     def handle(self):
-        # self.request is the TCP socket connected to the client
-        self.data = self.request.recv(1024).strip()
-        print "{} wrote: %s".format(self.client_address[0]) %self.data
-        # just send back the same data, but upper-cased
-        # self.request.sendall(self.data.upper())
-        # just send back index.html
-        file_object = open('index.html')
-        try:
-            file_context = file_object.read()
-            self.request.sendall(file_context)
-        finally:
-            file_object.close()
+        data = self.request.recv(2048).strip()
+
+        c = get_content(self, self.request, data)
+
+        self.request.sendall(c)
 
 if __name__ == "__main__":
     HOST = "0.0.0.0"

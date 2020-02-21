@@ -13,22 +13,33 @@ import sys
 
 proto = []
 
+def parse_as_header(data):
+    data2 = {}
+    for a in data.splitlines():
+        kvs = [a]
+        if ";" in a:
+            kvs = a.strip().split(";")
+        for kv in kvs:
+            kvlist = kv.strip().split("=", 1)
+            if len(kvlist) == 2:
+                data2[kvlist[0].strip()] = kvlist[1].strip()
+    return data2
 
-def get_content(self):
+def get_content2(proto, peer, me, path, kvs):
     status = 200
 
     s = "Host: %s\n" % socket.gethostname()
     s += "Proto: %s\n" % proto
-    s += "C->S: %s -> %s\n" % (self.connection.getpeername(), self.connection.getsockname())
-    s += "Path: %s\n" % self.path
+    s += "C->S: %s -> %s\n" % (peer, me)
+    s += "Path: %s\n" % path
 
     s += "  Head:\n"
-    for k, v in self.headers.items():
+    for k, v in kvs.items():
         s += "    %s: %s\n" % (k, v)
         if k.lower() == "httpstatus":
             status = int(v) if v.isdigit() else 400
 
-    l = self.headers.get("L", "")
+    l = kvs.get("L", "")
     if l.isdigit():
         s += "=" * int(l)
         s += "\n"
@@ -39,6 +50,8 @@ def get_content(self):
 
     return status, s.encode("utf-8")
 
+def get_content(self):
+    return get_content2(proto, self.connection.getpeername(), self.connection.getsockname(), self.path, self.headers)
 
 def do_GET2(self):
     status, msg = get_content(self)
@@ -81,4 +94,6 @@ def main():
         run_https(port, Handler)
     else:
         run_http(port, Handler)
-main()
+
+if __name__ == "__main__":
+    main()

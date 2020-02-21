@@ -1,5 +1,13 @@
 import SocketServer
 import sys
+import http2
+
+def get_content(self, socket, data):
+    data2 = http2.parse_as_header(data)
+
+    status, msg = http2.get_content2("udp", self.client_address, socket.getsockname(), "/", data2)
+    return msg
+
 class MyUDPHandler(SocketServer.BaseRequestHandler):
     """
     This class works similar to the TCP handler class, except that
@@ -11,14 +19,9 @@ class MyUDPHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         data = self.request[0].strip()
         socket = self.request[1]
-        print "{} wrote: %s".format(self.client_address[0]) %data
-        # just send back index.html
-        file_object = open('index.html')
-        try:
-            file_context = file_object.read()
-            socket.sendto(file_context, self.client_address)
-        finally:
-            file_object.close()
+        c = get_content(self, socket, data)
+
+        socket.sendto(c, self.client_address)
 
 if __name__ == "__main__":
     HOST = "0.0.0.0"
