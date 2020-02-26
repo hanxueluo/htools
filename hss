@@ -29,7 +29,7 @@ _execute() {
 }
 
 
-do_action() {
+do_each_action() {
     local dst="$1"
     local res=$(do_guess $dst)
     if test -z "$res";then
@@ -41,8 +41,7 @@ do_action() {
     if [ "$ACTION" = ssh ];then
         _execute ssh -oStrictHostKeyChecking=no $dst_ip "$@"
     elif [ "$ACTION" = upload ];then
-        local src="$1"
-        local dst="$2"
+        local src="$1" local dst="$2"
 
         test -n "$dst" || dst=/root/
 
@@ -91,6 +90,41 @@ do_action() {
     fi
 }
 
+do_action() {
+    local hasSplit=0
+    for arg in "$@"
+    do
+        if [ "X$arg" = "X---" ];then
+            hasSplit=1
+            break
+        fi
+    done
+
+    if [ "$hasSplit" = 0 ];then
+        do_each_action "$@"
+        return
+    fi
+
+    local arg0="$@"
+    local dsts=
+    while [ -n "$1" ]
+    do
+        if [ "X$1" = "X---" ];then
+            hasSplit=1
+            shift
+            break
+        fi
+        dsts="$dsts $1"
+        shift
+    done
+
+    for ip in $dsts
+    do
+        (do_each_action $ip "$@")
+    done
+    exit
+}
+
 if [ "$1"  = route ];then
     do_route_init
     exit
@@ -106,4 +140,3 @@ elif [ "$2"  = fxxk ];then
 fi
 
 do_action "$@"
-
