@@ -10,6 +10,7 @@ import ssl
 #from http import HTTPStatus
 import socket
 import sys
+import time
 
 proto = []
 
@@ -44,6 +45,9 @@ def get_content2(proto, peer, me, path, kvs):
         s += "=" * int(l)
         s += "\n"
 
+    l = kvs.get("SLEEP", "")
+    if l.isdigit():
+        time.sleep(int(l))
     #agent = self.headers.get("User-Agent", "")
     s = "<html><body><pre>\n%s\n</pre></body></html>\n" % s
     #import pdb;pdb.set_trace()
