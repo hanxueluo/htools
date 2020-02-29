@@ -28,6 +28,13 @@ _execute() {
     fi
 }
 
+use_pseudo_tty() {
+    local cmd=$1
+    if [ "$cmd" = ssh -o "$cmd" = scp -o "$cmd" = sshpass -o "$cmd" = hss -o "$cmd" = hto ];then
+        return 0
+    fi
+    return 1
+}
 
 do_each_action() {
     local dst="$1"
@@ -39,7 +46,11 @@ do_each_action() {
     read dst_ip passwd <<<"$res"
     PASSWORD=$passwd
     if [ "$ACTION" = ssh ];then
-        _execute ssh -oStrictHostKeyChecking=no $dst_ip "$@"
+        local pseudotty=
+        if use_pseudo_tty $1;then
+            pseudotty=-tt
+        fi
+        _execute ssh $pseudotty -oStrictHostKeyChecking=no $dst_ip "$@"
     elif [ "$ACTION" = upload ];then
         local src="$1" local dst="$2"
 
@@ -78,16 +89,6 @@ do_each_action() {
         fi
     fi
     exit
-
-    if test -n "$JUMP_IP";then exec ssh -tt $JUMP_IP ssh $dst_ip "$@"
-    fi
-    if test -n "$passwd";then
-        set -x
-        exec sshpass -p $passwd ssh -oStrictHostKeyChecking=no $dst_ip "$@"
-    else
-        set -x
-        exec ssh $dst_ip "$@"
-    fi
 }
 
 do_action() {
