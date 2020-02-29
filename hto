@@ -2,11 +2,11 @@
 
 if test -z "$1";then
     echo "Error arguments:"
-    echo "   $0 IP [PASSWORD]"
+    echo "   $0 init"
+    echo "   $0 IP [CMDLINE]"
+    echo "   $0 IP [fxxk] [...]"
     exit 1
 fi
-
-cd $(dirname $0)
 
 list_file() {
     find .  -maxdepth 1 -size -1000k -type f
@@ -14,16 +14,50 @@ list_file() {
     echo .gitignore
 }
 
-rm -rf /tmp/htools/
-mkdir /tmp/htools
-cp -a `list_file |grep -v '^#'|xargs` /tmp/htools/
+mk_tmp_htools() {
+    rm -rf /tmp/htools/
+    mkdir /tmp/htools
+    cp -a `list_file |grep -v '^#'|xargs` /tmp/htools/
+}
+
+pre_login() {
+    if [ -n "$2" ];then
+        return 0
+    fi
+    local dst=$1
+    ./hss "$dst" "echo '! test -f ~/htools/alias_pykube || source ~/htools/alias_pykube' > /etc/profile.d/htools.sh"
+}
+
+init_local() {
+    if ! test -d /etc/profile.d/ ;then
+        echo "Error: /etc/profile.d/ doesn't exist"
+        return 1
+    fi
+
+    echo '! test -f ~/htools/alias_pykube || source ~/htools/alias_pykube' > /etc/profile.d/htools.sh
+    echo '/etc/profile.d/htools.sh init done!'
+}
+
+
+cd $(dirname $0)
+
+if [ "$1" = init ];then
+    init_local
+    exit
+fi
 
 dst=$1
 shift
 op=$1
+
 if [ "$op" = fxxk ];then
     shift
     ./hss "$dst" fxxk echo fxxked
 fi
-./hss u "$dst" /tmp/htools/ '~/' &&
-    ./hss "$dst" "$@"
+
+mk_tmp_htools
+
+if ./hss u "$dst" /tmp/htools/ '~/';then
+    pre_login "$dst" "$@"
+    exec ./hss "$dst" "$@"
+fi
