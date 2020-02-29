@@ -33,6 +33,9 @@ use_pseudo_tty() {
     if [ "$cmd" = ssh -o "$cmd" = scp -o "$cmd" = sshpass -o "$cmd" = hss -o "$cmd" = hto ];then
         return 0
     fi
+    if [[ "$cmd" == */hss || "$cmd" == */hto || "$cmd" == */sshpass ]];then
+        return 0
+    fi
     return 1
 }
 
@@ -86,6 +89,8 @@ do_each_action() {
             update_dict_file $dst $dst_ip $pw
             shift
             exec $PROCESS $dst "$@"
+        else
+            echo "all guesses fail: $pw"
         fi
     fi
     exit

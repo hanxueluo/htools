@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-PC_IP=192.168.11.237
-DEFAULT_PASSWD=${DEFAULT_PASSWD:-123456}
+PC_IP=192.168.11.214
 SSHPASS_BIN=sshpass
 
 startswith() {
@@ -39,6 +38,27 @@ complete_dict() {
     done < ~/.hss_pw_dict
 }
 
+complete_var() {
+    # if empty var, load from config
+    if ! test -f .hguess_conf;then
+        return
+    fi
+
+    local old1=$DEFAULT_PASSWD
+    local old2=$TRY_PASSWD
+
+    DEFAULT_PASSWD=
+    TRY_PASSWD=
+
+    source .hguess_conf
+    if test -z "$DEFAULT_PASSWD";then
+        DEFAULT_PASSWD=${old1:-123456}
+    fi
+    if test -z "$TRY_PASSWD";then
+        TRY_PASSWD=${old2:-1q2w3e}
+    fi
+}
+
 update_ssh_known_hosts() {
     local dst_ip=$1
     grep -vw $dst_ip ~/.ssh/known_hosts > /tmp/ssh_known_hosts
@@ -50,7 +70,7 @@ update_dict_file() {
     local dst_ip=$2
     local pw=$3
     {
-        grep -vw $dst_ip ~/.hss_pw_dict
+        grep -svw $dst_ip ~/.hss_pw_dict
         echo "$dst $dst_ip $pw"
     } > /tmp/hss_pw_dict_tmp
     mv /tmp/hss_pw_dict_tmp ~/.hss_pw_dict
@@ -66,10 +86,12 @@ try_pws() {
             return 0
         fi
     done
+    echo $default_pw $TRY_PASSWD $DEFAULT_PASSWD
     return 1
 }
 
 complete_bin
+complete_var
 complete_dict
 
 do_guess() {
