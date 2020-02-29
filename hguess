@@ -2,6 +2,7 @@
 
 PC_IP=192.168.11.237
 DEFAULT_PASSWD=${DEFAULT_PASSWD:-123456}
+SSHPASS_BIN=sshpass
 
 startswith() {
     local value="$1"
@@ -20,6 +21,15 @@ declare -A DICT
 DICT=( \
     [pc]="$PC_IP" \
     [net]="192.168.128.141" )
+
+complete_bin() {
+    if ! which sshpass >/dev/null 2>&1;then
+        local p=$(pwd)/sshpass
+        if test -f $p;then
+            SSHPASS_BIN=$p
+        fi
+    fi
+}
 
 complete_dict() {
     test -r ~/.hss_pw_dict || return
@@ -51,7 +61,7 @@ try_pws() {
     local default_pw=$2
     for pw in $default_pw $TRY_PASSWD $DEFAULT_PASSWD
     do
-        if sshpass -p "$pw" ssh -o StrictHostKeyChecking=no root@$ip echo hello 2>/dev/null | grep -wq hello;then
+        if $SSHPASS_BIN -p "$pw" ssh -o StrictHostKeyChecking=no root@$ip echo hello 2>/dev/null | grep -wq hello;then
             echo $pw
             return 0
         fi
@@ -59,7 +69,7 @@ try_pws() {
     return 1
 }
 
-
+complete_bin
 complete_dict
 
 do_guess() {

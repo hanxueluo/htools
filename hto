@@ -12,12 +12,15 @@ list_file() {
     find .  -maxdepth 1 -size -1000k -type f
     echo .git
     echo .gitignore
+    test -f sshpass-linux && echo sshpass-linux
+    test -f sshpass && echo sshpass
 }
 
 mk_tmp_htools() {
     rm -rf /tmp/htools/
     mkdir /tmp/htools
     cp -a `list_file |grep -v '^#'|xargs` /tmp/htools/
+    mv /tmp/htools/sshpass-linux /tmp/htools/sshpass 2>/dev/null || true
 }
 
 pre_login() {

@@ -21,7 +21,7 @@ PASSWORD=
 _execute() {
     if test -n "$PASSWORD";then
         set -x
-        exec sshpass -p "$PASSWORD" "$@"
+        exec $SSHPASS_BIN -p "$PASSWORD" "$@"
     else
         set -x
         exec "$@"
