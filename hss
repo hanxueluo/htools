@@ -119,6 +119,15 @@ do_action() {
         shift
     done
 
+    # Workaroud: fix action for multiple ips
+    if [ "$1"  = fxxk ];then
+        ACTION=fxxk
+        # exit ssh session if multiple ips
+        if [ -z "$2" ];then
+            set -- fxxk exit
+        fi
+    fi
+
     for ip in $dsts
     do
         (do_each_action $ip "$@")
@@ -130,6 +139,14 @@ if [ "$1"  = route ];then
     do_route_init
     exit
 fi
+
+if [ -n "$MIDDLE_IP" ];then
+    mip=$MIDDLE_IP
+    export MIDDLE_IP=
+    set -x
+    exec $PROCESS $mip "~/htools/hss" "$@"
+fi
+
 if [ "$1" = u ];then
     ACTION=upload
     shift

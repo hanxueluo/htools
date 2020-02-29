@@ -76,11 +76,8 @@ do_guess() {
             dst_ip=192.168.19.0
         fi
         passwd=$DEFAULT_PASSWD
-    elif echo "$dst" | grep -q "^[0-9]\+$";then # vm on PC
+    elif echo "$dst" | grep -q "^[0-9]\+$";then # vm 172.16.70.xxx on PC
         dst_ip=172.16.70.$dst
-        if ip route get $PC_IP | grep -wq via;then
-            JUMP_IP=$PC_IP
-        fi
     elif echo "$dst" | grep -q "^[0-9]\+\.[0-9]\+$";then # 192.168.xxx.yyy
         dst_ip=192.168.$dst
         passwd=$DEFAULT_PASSWD
