@@ -12,7 +12,7 @@ import socket
 import sys
 import time
 
-proto = []
+proto = [""]
 
 def parse_as_header(data):
     data2 = {}
@@ -26,18 +26,20 @@ def parse_as_header(data):
                 data2[kvlist[0].strip()] = kvlist[1].strip()
     return data2
 
-def get_content2(proto, peer, me, path, kvs):
+def get_content2(proto, infos, peer, me, kvs):
     status = 200
 
     s = "Host: %s\n" % socket.gethostname()
-    s += "Proto: %s\n" % proto
     s += "C->S: %s -> %s\n" % (peer, me)
-    s += "Path: %s\n" % path
+    s += "Proto: %s\n" % proto
+
+    for k,v in infos:
+        s += "%s: %s\n" % (k, v)
 
     s += "  Head:\n"
     for k, v in kvs.items():
         s += "    %s: %s\n" % (k, v)
-        if k.lower() == "httpstatus":
+        if k.lower() == "HTTPSTATUS":
             status = int(v) if v.isdigit() else 400
 
     l = kvs.get("L", "")
@@ -48,14 +50,18 @@ def get_content2(proto, peer, me, path, kvs):
     l = kvs.get("SLEEP", "")
     if l.isdigit():
         time.sleep(int(l))
-    #agent = self.headers.get("User-Agent", "")
     s = "<html><body><pre>\n%s\n</pre></body></html>\n" % s
-    #import pdb;pdb.set_trace()
 
     return status, s.encode("utf-8")
 
 def get_content(self):
-    return get_content2(proto, self.connection.getpeername(), self.connection.getsockname(), self.path, self.headers)
+    infos = [
+            ( "Version", "%s -> %s" % (self.request_version, self.server_version) ),
+            ( "Method", self.command ),
+            ( "Path", self.path ),
+            ]
+
+    return get_content2(proto[0], infos, self.connection.getpeername(), self.connection.getsockname(), self.headers)
 
 def do_GET2(self):
     status, msg = get_content(self)
@@ -66,8 +72,21 @@ def do_GET2(self):
     self.end_headers()
     self.wfile.write(msg)
 
+def do_POST2(self):
+    post_data = ""
+    content_length = int(self.headers.get('Content-Length', '0'))
+    if content_length > 0:
+        post_data = self.rfile.read(content_length)
+
+    status, msg = get_content(self)
+
+    self.send_response(status)
+    self.send_header("Content-type", "text/html")
+    self.end_headers()
+    self.wfile.write(msg)
+
 def run_https(port, handler):
-    proto.append("https")
+    proto[0] = "https"
     httpd = BaseHTTPServer.HTTPServer(("", port), handler)
     httpd.socket = ssl.wrap_socket (httpd.socket,
             keyfile="./ssl.key",
@@ -81,7 +100,7 @@ def run_https(port, handler):
     httpd.serve_forever()
 
 def run_http(port, handler):
-    proto.append("http")
+    proto[0] = "http"
     httpd = SocketServer.TCPServer(("", port), handler)
     print("serving at port", port)
     httpd.serve_forever()
@@ -93,6 +112,9 @@ def main():
 
     Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
     Handler.do_GET = do_GET2
+    Handler.do_POST = do_POST2
+    Handler.do_PUT = do_POST2
+    Handler.do_DELETE = do_POST2
 
     if "https" in sys.argv[0]:
         run_https(port, Handler)

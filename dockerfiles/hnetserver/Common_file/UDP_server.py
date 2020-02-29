@@ -3,9 +3,8 @@ import sys
 import http2
 
 def get_content(self, socket, data):
-    data2 = http2.parse_as_header(data)
-
-    status, msg = http2.get_content2("udp", self.client_address, socket.getsockname(), "/", data2)
+    headers = http2.parse_as_header(data)
+    status, msg = http2.get_content2("udp", [], self.client_address, socket.getsockname(), headers)
     return msg
 
 class MyUDPHandler(SocketServer.BaseRequestHandler):
