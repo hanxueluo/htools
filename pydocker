@@ -548,6 +548,8 @@ class DockerExecutor(object):
         elif hasfilter:
             lines = self.raw_execute(kind, self.get_list_action(), resource, self.get_option([]))
             lines = self.select_by_pattern(lines[1:], _pattern)
+            if len(_pattern) == 1 and lines: # select latest one if pattern is empty
+                lines = [lines[0]]
             self.save_cache(lines)
 
         # 3. second call
