@@ -109,3 +109,7 @@ etcdctl
 ipvsadm
 netctl
 ovn-trace
+sshpass
+sshpass-*
+
+.[a-z]*
