@@ -1,9 +1,9 @@
 #!/bin/bash
 
 RULE_MATCH_="-p tcp --dport 32145"
-RULE_MATCH_="-p tcp"
-RULE_MATCH_="-s 192.168.10.137 -p tcp"
-RULE_MATCH_="-d 172.16.70.51 -p icmp"
+RULE_MATCH_="-p tcp -m multiport --ports 4789"
+RULE_MATCH_="-p tcp -s 192.168.10.137"
+RULE_MATCH_="-p icmp -d 172.16.70.51"
 
 #HIPT_RULE_MATCH=${RULE_MATCH_}
 RULE_JUMP="-j LOG --log-level 6 --log-prefix hipt-%t-%c-%l"
@@ -149,6 +149,13 @@ case "$op" in
             ic [table] [chain]  insert for one table chain
             del  [table] ..     delete from tables
             stat [table] ..     show statistics of tables
+
+        env example:
+            HIPT_RULE_MATCH="-p tcp --dport 32145"
+            HIPT_RULE_MATCH="-p tcp -m multiport --ports 12345"
+            HIPT_RULE_MATCH="-p tcp -s 172.16.70.51"
+            HIPT_RULE_MATCH="-p icmp -d 172.16.70.51"
+
 EOF
         ;;
 esac
