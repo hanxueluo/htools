@@ -1,16 +1,11 @@
 #!/usr/bin/env python
 # TODO LIST:
 # support multiple do
-# doi $action 0 ==> docker $action lastest_image
 
 # list veth, list ip for "doc ls"
 # list pid and nx for "doc ls -d"
 
 # doi repo // /etc/hosts ... # pydocker: AIALS:REPO
-# doi dis N ==> display copiable tag
-
-### doi rm N ==> tag > id
-# doi pull N
 
 import os
 import subprocess
