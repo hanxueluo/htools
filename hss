@@ -1,12 +1,41 @@
 #!/usr/bin/env bash
 PROCESS=$0
 
-test -z "$1" && exit 1
 cd $(dirname $0)
 source ./hguess
 cd - >/dev/null
 
 dst_ip=$PC_IP
+
+do_help() {
+    cat <<EOF
+ ssh:
+    hss IP [fxxk] [CMDLINE]                     # ssh without password; 'fxxk' try possible pwds
+
+ hss through middle ip:
+    MIDDLE_IP=\$middle_ip hss ...                # set env MIDDLE_IP before hss; file transfer is not support
+
+ file transfer:
+    hss u IP LocalFile/Directory  RemotePath               # upload a file or directory
+    hss d IP RemoteFile/Directory LocalPath                # download; "RemoteDirectory" should end with '/'
+
+ operate on multiple ips:
+    hss   IP1 IP2 [...] --- [fxxk] [CMDLINE]               # operate on multiple ips
+    hss u IP1 IP2 [...] --- LocalFile/Directory RmotePath  # upload to multiple ips; download is not support
+
+ configuration:
+    env  DEFAULT_PASSWD                         # password used by default
+    env  TRY_PASSWD                             # passwords used to try; delimied by " "
+    file \$PWD/.hguess_conf                      # if no env specified, variable in file will be used
+    file ~/.hss_pw_dict                         # host-password dictionary cache file
+
+ requirements/todos:
+    - download from multiple ips
+    - file transfer passthrough middle ip
+    - specify ssh option
+EOF
+    exit
+}
 
 do_route_init() {
     if ! ip route | grep -q "172.16.70.0/24 via $PC_IP";then
@@ -139,6 +168,11 @@ do_action() {
     done
     exit
 }
+
+if [ "$1"  = "-h" -o -z "$1" ];then
+    do_help
+    exit
+fi
 
 if [ "$1"  = route ];then
     do_route_init
