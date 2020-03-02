@@ -3,6 +3,10 @@
 # TODO LIST:
 # . do not do all if no match
 
+# kpr 1 [KEY] # list release.spec.config "KEY", default KEY is "image"
+# kpr 1 [KEY] [N]:VALUE  # patch N-th match KEY; N is first if ommit;
+# kp could work for all kind
+
 import os
 import subprocess
 import sys
