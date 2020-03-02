@@ -296,21 +296,28 @@ class Executor(object):
             lines = self.format_by_pattern(lines, _pattern)
 
         # 3. second call
+        resources = { namespace: [resource] }
         if lines is not None:
-            # TODO different namespaces
-            namespace, resources = self.extract_namespace_resource_all(lines)
-            resource = " ".join(resources)
+            resources = self.extract_namespace_resource_all(lines)
 
-        if not resource and not option.raw:
+        if not resources and not option.raw:
             action = "get"
 
-        if action in ["delete", "edit"] and " " in resource:
-            if not self.confirm_before_do("\nAre you sure to %s %s %s? (y/n) " % (action, kind, "\n\t" + resource.replace(" ", "\n\t") + "\n")):
-                print_to_stderr("Aborted.")
-                return
+        if action in ["delete", "edit"]:
+            ress = resources.values()
+            if len(ress) > 1 or (len(ress) == 1 and len(ress[0]) > 1):
+                res_str = ""
+                for namespace, ress in resources.iteritems():
+                    res_str += "    " + namespace + "/\n        "
+                    res_str += "\n        ".join(ress) + "\n"
 
-        lines = self.kube_execute(namespace, action, kind, resource, option)
-        print "\n".join(lines)
+                if not self.confirm_before_do("\nAre you sure to %s %s %s? (y/n) " % (action, kind, "\n" + res_str)):
+                    print_to_stderr("Aborted.")
+                    return
+
+        for namespace, ress in resources.iteritems():
+            lines = self.kube_execute(namespace, action, kind, " ".join(ress), option)
+            print "\n".join(lines)
 
     def format_namespace(self, lines, kind, namespace):
         if namespace:
@@ -369,23 +376,19 @@ class Executor(object):
         return r.strip().lower() in ["y", "yes"]
 
     def extract_namespace_resource_all(self, lines):
-        namespace = ""
-        resources = []
+        res = {}
         if not lines:
-            return namespace, resources
+            return res
 
         ns = lines[0].split()[0]
         id_index = 1 if ns in ["NS", "NAMESPACE"] else 0
 
         for line in lines[1:]:
             items = line.split()
-            namespace = items[0]
-            resources.append(items[id_index])
+            ns = items[0] if id_index != 0 else "-"
+            res.setdefault(ns, []).append(items[id_index])
 
-        if id_index == 0:
-            namespace = "-"
-
-        return namespace, resources
+        return res
 
     def extract_ns_by_name(self, lines, column, name):
         for line in lines:
