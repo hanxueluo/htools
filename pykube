@@ -355,13 +355,23 @@ class Executor(object):
     def filter_by_pattern(self, lines, pattern):
         if not lines:
             return lines
-        lines2 = []
         title = lines[0]
         if title.startswith("NAME ") or title.startswith("NAMESPACE "):
-            lines2.append(title)
             lines = lines[1:]
+        else:
+            title = ""
+
+        idx = ""
+        pitems = pattern.rsplit(":", 1)
+        # to support index after match, e.g. "/pattern:1"
+        if len(pitems) == 2:
+            idx = pitems[1]
+            if idx.isdigit() or ( idx and idx[0] == "-" and idx[1:].isdigit()):
+                pattern = pitems[0]
+                idx = int(idx)
 
         rr = re.compile(pattern[1:])
+        lines2 = []
         for line in lines:
             if rr.search(line):
                 if pattern[0] == "/":
@@ -369,6 +379,11 @@ class Executor(object):
             else:
                 if pattern[0] == "@":
                     lines2.append(line)
+
+        if isinstance(idx, int):
+            lines2 = [lines2[idx]]
+        if title:
+            lines2.insert(0, title)
         return lines2
 
     def confirm_before_do(self, message):
