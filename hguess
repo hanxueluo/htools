@@ -49,14 +49,9 @@ complete_var() {
 
     DEFAULT_PASSWD=
     TRY_PASSWD=
-
     source .hguess_conf
-    if test -z "$DEFAULT_PASSWD";then
-        DEFAULT_PASSWD=${old1:-123456}
-    fi
-    if test -z "$TRY_PASSWD";then
-        TRY_PASSWD=${old2:-1q2w3e}
-    fi
+    DEFAULT_PASSWD=${old1:-$DEFAULT_PASSWD}
+    TRY_PASSWD=${old2:-$TRY_PASSWD}
 }
 
 update_ssh_known_hosts() {
