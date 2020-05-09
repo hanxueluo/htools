@@ -1,18 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-
-#import http.server
-import SimpleHTTPServer
-import BaseHTTPServer
-import SocketServer
-import io
+import http.server
+import socketserver
 import ssl
-#from http import HTTPStatus
-import socket
 import sys
 import time
 
 proto = [""]
+bodysleep = 0
 
 def parse_as_header(data):
     data2 = {}
@@ -50,6 +45,13 @@ def get_content2(proto, infos, peer, me, kvs):
     l = kvs.get("SLEEP", "")
     if l.isdigit():
         time.sleep(int(l))
+
+    global bodysleep
+    bodysleep = 0
+    l = kvs.get("BODYSLEEP", "")
+    if l.isdigit():
+        bodysleep = int(l)
+
     s = "<html><body><pre>\n%s\n</pre></body></html>\n" % s
 
     return status, s.encode("utf-8")
@@ -70,6 +72,9 @@ def do_GET2(self):
     self.send_response(status)
     self.send_header("Content-type", "text/html")
     self.end_headers()
+    if bodysleep > 0:
+        time.sleep(bodysleep)
+        print("body sleep %s" % bodysleep)
     self.wfile.write(msg)
 
 def do_POST2(self):
@@ -87,7 +92,7 @@ def do_POST2(self):
 
 def run_https(port, handler):
     proto[0] = "https"
-    httpd = BaseHTTPServer.HTTPServer(("", port), handler)
+    httpd = http.server.HTTPServer(("", port), handler)
     httpd.socket = ssl.wrap_socket (httpd.socket,
             keyfile="./ssl.key",
             certfile='./ssl.crt',
@@ -101,7 +106,7 @@ def run_https(port, handler):
 
 def run_http(port, handler):
     proto[0] = "http"
-    httpd = SocketServer.TCPServer(("", port), handler)
+    httpd = socketserver.TCPServer(("", port), handler)
     print("serving at port", port)
     httpd.serve_forever()
 
@@ -110,7 +115,7 @@ def main():
     if len(sys.argv) >= 2:
         port = int(sys.argv[1])
 
-    Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+    Handler = http.server.SimpleHTTPRequestHandler
     Handler.do_GET = do_GET2
     Handler.do_POST = do_POST2
     Handler.do_PUT = do_POST2

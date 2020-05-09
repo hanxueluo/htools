@@ -1,0 +1,68 @@
+# copy from https://hub.docker.com/r/nicolaka/netshoot/dockerfile
+FROM cargo.caicloud.xyz/library/debian:stretch
+
+LABEL maintainer="Huanle Han <hanhuanle@caicloud.io>"
+
+RUN set -ex \
+    && apt update \
+    && apt -y upgrade \
+    && apt -y install --no-install-recommends \
+    apache2-utils \
+    bash \
+    dnsutils \
+    bird \
+    bridge-utils \
+    conntrack \
+    curl \
+    dhcping \
+    ethtool \
+    file\
+    fping \
+    iftop \
+    iperf \
+    iproute2 \
+    ipset \
+    iptables \
+    iptraf-ng \
+    ipvsadm \
+    mtr \
+    procps \
+    netcat-openbsd \
+    nftables \
+    ngrep \
+    nmap \
+    openssl \
+    python3 \
+    python3-pip \
+    socat \
+    strace \
+    tcpdump \
+    tcptraceroute \
+    util-linux \
+    wget \
+    vim \
+	&& rm -rf /var/lib/apt/lists/*
+
+
+RUN pip3 install --upgrade pip
+
+RUN wget https://files.pythonhosted.org/packages/cc/31/178a6fabaf351064c5d35985bfbe8edee863a097de21c6281d5635332ba9/grpcio-1.28.1-cp35-cp35m-manylinux2010_x86_64.whl \
+	&& pip3 install grpcio-*.whl \
+	&& rm -rf grpcio-*.whl
+
+# Installing ctop - top-like container monitor
+RUN wget https://github.com/bcicen/ctop/releases/download/v0.7.1/ctop-0.7.1-linux-amd64 -O /usr/local/bin/ctop && chmod +x /usr/local/bin/ctop
+
+# Installing calicoctl
+ARG CALICOCTL_VERSION=v3.5.7
+RUN wget https://github.com/projectcalico/calicoctl/releases/download/${CALICOCTL_VERSION}/calicoctl && chmod +x calicoctl && mv calicoctl /usr/local/bin
+
+# Settings
+#ADD motd /etc/motd
+#ADD profile  /etc/profile
+
+ADD Common_file /Common_file
+
+WORKDIR /Common_file
+
+ENTRYPOINT ["sh", "/Common_file/start_socket.sh"]
