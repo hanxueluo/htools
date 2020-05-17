@@ -1,4 +1,4 @@
-import SocketServer
+import socketserver
 import sys
 import http2
 
@@ -7,7 +7,7 @@ def get_content(self, socket, data):
     status, msg = http2.get_content2("udp", [], self.client_address, socket.getsockname(), headers)
     return msg
 
-class MyUDPHandler(SocketServer.BaseRequestHandler):
+class MyUDPHandler(socketserver.BaseRequestHandler):
     """
     This class works similar to the TCP handler class, except that
     self.request consists of a pair of data and client socket, and since
@@ -25,6 +25,6 @@ class MyUDPHandler(SocketServer.BaseRequestHandler):
 if __name__ == "__main__":
     HOST = "0.0.0.0"
     PORT = int(sys.argv[1])
-    server = SocketServer.UDPServer((HOST, PORT), MyUDPHandler)
-    print "Serving UDP on %s port %d ..." %(HOST, PORT)
+    server = socketserver.UDPServer((HOST, PORT), MyUDPHandler)
+    print("Serving UDP on %s port %d ..." %(HOST, PORT))
     server.serve_forever()

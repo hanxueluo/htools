@@ -40,7 +40,7 @@ setup_port() {
 
 setup_tcp() {
     cd /Common_file/
-    python TCP_server.py $tcp_port &
+    python3 TCP_server.py $tcp_port &
 }
 
 setup_tcp_stream() {
@@ -52,19 +52,25 @@ setup_tcp_stream() {
 
 setup_udp() {
     cd /Common_file/
-    python UDP_server.py $udp_port &
+    python3 UDP_server.py $udp_port &
 }
 
 setup_http() {
     cd /Common_file/
-    cp /Common_file/http2.py ./http.py;
-    python http.py $http_port &
+    cp /Common_file/http2.py ./local_http.py;
+    python3 local_http.py $http_port &
 }
 
 setup_https() {
     cd /Common_file/cert/
-    cp /Common_file/http2.py /Common_file/cert/https.py;
-    python https.py $https_port
+    cp /Common_file/http2.py /Common_file/cert/local_https.py;
+    python3 local_https.py $https_port
+}
+
+setup_grpc() {
+    cd /Common_file/
+    cp /Common_file/grpc2.py ./grpc_grpc.py;
+    python3 grpc_grpc.py &
 }
 
 setup_fg_cmd() {
@@ -97,6 +103,7 @@ setup_bg_cmd
 setup_tcp
 setup_tcp_stream
 setup_udp
+setup_grpc
 setup_http
 setup_https
 

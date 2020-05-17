@@ -1,4 +1,4 @@
-import SocketServer
+import socketserver
 import sys
 import http2
 
@@ -8,7 +8,7 @@ def get_content(self, socket, data):
     return msg
 
 
-class MyTCPHandler(SocketServer.BaseRequestHandler):
+class MyTCPHandler(socketserver.BaseRequestHandler):
     """
     The request handler class for our server.
 
@@ -29,9 +29,9 @@ if __name__ == "__main__":
     PORT = int(sys.argv[1])
 
     # Create the server, binding to localhost on port 9999
-    server = SocketServer.TCPServer((HOST, PORT), MyTCPHandler)
+    server = socketserver.TCPServer((HOST, PORT), MyTCPHandler)
     
-    print "Serving TCP on %s port %d ..." %(HOST, PORT)
+    print("Serving TCP on %s port %d ..." %(HOST, PORT))
     # Activate the server; this will keep running until you
     # interrupt the program with Ctrl-C
     server.serve_forever()

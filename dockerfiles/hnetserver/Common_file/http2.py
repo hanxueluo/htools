@@ -5,6 +5,7 @@ import socketserver
 import ssl
 import sys
 import time
+import socket
 
 proto = [""]
 bodysleep = 0

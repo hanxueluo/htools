@@ -40,8 +40,6 @@ RUN set -ex \
     nmap \
     nmap-nping \
     openssl \
-    py-crypto \
-    py2-virtualenv \
     python2 \
     scapy \
     socat \
