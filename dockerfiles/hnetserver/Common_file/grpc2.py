@@ -52,8 +52,22 @@ class Greeter(helloworld_pb2_grpc.GreeterServicer):
         print("handle:", context.peer())
         return helloworld_pb2.HelloReply(message=md)
 
+def get_server_cred():
+    with open('/Common_file/cert/ssl.key', 'rb') as f:
+        private_key = f.read()
+    with open('/Common_file/cert/ssl.crt', 'rb') as f:
+        certificate_chain = f.read()
+    # create server credentials
+    server_credentials = grpc.ssl_server_credentials(
+      ((private_key, certificate_chain,),))
+    return server_credentials
 
 def serve():
+    if "grpcs" in sys.argv[0]:
+        sc = get_server_cred()
+    else:
+        sc = None
+
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(), server)
     SERVICE_NAMES = (
@@ -61,7 +75,10 @@ def serve():
         reflection.SERVICE_NAME,
     )
     reflection.enable_server_reflection(SERVICE_NAMES, server)
-    server.add_insecure_port('[::]:50051')
+    if sc:
+        server.add_secure_port('[::]:50052', sc)
+    else:
+        server.add_insecure_port('[::]:50051')
     print("Listen on [::]:50051")
     server.start()
     try:

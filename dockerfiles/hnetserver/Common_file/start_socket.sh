@@ -69,8 +69,14 @@ setup_https() {
 
 setup_grpc() {
     cd /Common_file/
-    cp /Common_file/grpc2.py ./grpc_grpc.py;
+    cp /Common_file/grpc2.py /Common_file/grpc_grpc.py;
     python3 grpc_grpc.py &
+}
+
+setup_grpcs() {
+    cd /Common_file/
+    cp /Common_file/grpc2.py /Common_file/grpc_grpcs.py;
+    python3 grpc_grpcs.py &
 }
 
 setup_fg_cmd() {
@@ -104,6 +110,7 @@ setup_tcp
 setup_tcp_stream
 setup_udp
 setup_grpc
+setup_grpcs
 setup_http
 setup_https
 
