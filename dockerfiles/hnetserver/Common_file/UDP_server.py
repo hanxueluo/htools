@@ -17,6 +17,7 @@ class MyUDPHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         data = self.request[0].strip()
+        data = str(data)
         socket = self.request[1]
         c = get_content(self, socket, data)
 

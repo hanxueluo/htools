@@ -19,7 +19,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         data = self.request.recv(2048).strip()
-
+        data = str(data)
         c = get_content(self, self.request, data)
 
         self.request.sendall(c)
