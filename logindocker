@@ -1,0 +1,42 @@
+#!/bin/bash
+
+ip=$1
+domain=$2
+
+valida_args() {
+    local ip=$1
+    local domain=$2
+    if [ -n "$ip" -a -n "$domain" ];then
+        return 0
+    fi
+    echo "error: invalid arguments"
+    exit 1
+}
+
+update_hosts() {
+    local ip=$1
+    local domain=$2
+    {
+        grep -v "^[^#]* $domain\b" /etc/hosts
+        echo "$ip $domain"
+    } > /tmp/docker_etc_hosts
+    cat /tmp/docker_etc_hosts > /etc/hosts
+}
+
+update_docker_json() {
+    local file=~/.docker/daemon.json
+    local domain=$1
+    local mark='"insecure-registries"'
+    if grep -qF '"'"$domain"'"' $file;then
+        return
+    fi
+    awk '1; !found && /insecure-registries/ { print "    \"'$domain'\","; found=1 }' $file > /tmp/docker_daemon_json
+    mv /tmp/docker_daemon_json $file
+}
+
+valida_args "$ip" "$domain"
+update_hosts "$ip" "$domain"
+update_docker_json "$domain"
+
+set -x
+docker login "$domain" -uadmin -pPwd123456
