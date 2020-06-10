@@ -6,7 +6,7 @@ import logging
 
 import grpc
 from grpc_reflection.v1alpha import reflection
-import http2
+import common
 import sys
 import subprocess
 import re
@@ -44,18 +44,18 @@ def get_content(s, request, context):
     for c in context.invocation_metadata():
         headers[c.key] = c.value
 
-    return http2.get_content2("grpc", infos, context.peer(), get_host_ip(), headers)
+    return common.get_content("grpc", infos, context.peer(), get_host_ip(), headers)
 
 class Greeter(helloworld_pb2_grpc.GreeterServicer):
     def SayHello(self, request, context):
-        code, md = get_content(self, request, context)
+        code, md, kvs = get_content(self, request, context)
         print("handle:", context.peer())
         return helloworld_pb2.HelloReply(message=md)
 
 def get_server_cred():
-    with open('/Common_file/cert/ssl.key', 'rb') as f:
+    with open('./cert/ssl.key', 'rb') as f:
         private_key = f.read()
-    with open('/Common_file/cert/ssl.crt', 'rb') as f:
+    with open('./cert/ssl.crt', 'rb') as f:
         certificate_chain = f.read()
     # create server credentials
     server_credentials = grpc.ssl_server_credentials(
@@ -63,7 +63,13 @@ def get_server_cred():
     return server_credentials
 
 def serve():
-    if "grpcs" in sys.argv[0]:
+    port = 50051
+    if len(sys.argv) >= 2:
+        port = int(sys.argv[-1])
+
+    print("Serving grpc on %s" %(sys.argv[1:]))
+
+    if "grpcs" in sys.argv:
         sc = get_server_cred()
     else:
         sc = None
@@ -76,10 +82,10 @@ def serve():
     )
     reflection.enable_server_reflection(SERVICE_NAMES, server)
     if sc:
-        server.add_secure_port('[::]:50052', sc)
+        server.add_secure_port('[::]:%s' % port, sc)
     else:
-        server.add_insecure_port('[::]:50051')
-    print("Listen on [::]:50051")
+        server.add_insecure_port('[::]:%s' % port)
+    print("Listen on [::]:%s" % port)
     server.start()
     try:
         while True:

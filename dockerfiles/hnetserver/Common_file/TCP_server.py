@@ -1,10 +1,11 @@
+#!/usr/bin/env python3
 import socketserver
 import sys
-import http2
+import common
 
 def get_content(self, socket, data):
-    headers = http2.parse_as_header(data)
-    status, msg = http2.get_content2("tcp", [], socket.getpeername(), socket.getsockname(), headers)
+    headers = common.parse_as_header(data)
+    status, msg, _ = common.get_content("tcp", [], socket.getpeername(), socket.getsockname(), headers)
     return msg
 
 
@@ -19,7 +20,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         data = self.request.recv(2048).strip()
-        data = str(data)
+        data = data.decode('utf-8')
         c = get_content(self, self.request, data)
 
         self.request.sendall(c)
@@ -30,6 +31,7 @@ if __name__ == "__main__":
 
     # Create the server, binding to localhost on port 9999
     server = socketserver.TCPServer((HOST, PORT), MyTCPHandler)
+    server.allow_reuse_address = True
     
     print("Serving TCP on %s port %d ..." %(HOST, PORT))
     # Activate the server; this will keep running until you

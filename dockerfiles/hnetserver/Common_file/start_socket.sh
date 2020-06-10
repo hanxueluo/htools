@@ -1,6 +1,7 @@
 #!/bin/sh
-hostname=`cat /etc/hostname`
+cd $(dirname $0)
 
+hostname=`cat /etc/hostname`
 port_suffix=$1
 
 print_arg() {
@@ -39,48 +40,36 @@ setup_port() {
 }
 
 setup_tcp() {
-    cd /Common_file/
     python3 TCP_server.py $tcp_port &
 }
 
 setup_tcp_stream() {
     let p=$tcp_port+1
-    cd /Common_file/
     echo /usr/bin/socat -v TCP-LISTEN:$p,fork,reuseaddr  exec:'/bin/cat'
     /usr/bin/socat -v TCP-LISTEN:$p,fork,reuseaddr  exec:'/bin/cat' &
 }
 
 setup_udp() {
-    cd /Common_file/
     python3 UDP_server.py $udp_port &
 }
 
 setup_http() {
-    cd /Common_file/
-    cp /Common_file/http2.py ./local_http.py;
-    python3 local_http.py $http_port &
+    python3 http_server.py http $http_port &
 }
 
 setup_https() {
-    cd /Common_file/cert/
-    cp /Common_file/http2.py /Common_file/cert/local_https.py;
-    python3 local_https.py $https_port
+    python3 http_server.py https $https_port &
 }
 
 setup_grpc() {
-    cd /Common_file/
-    cp /Common_file/grpc2.py /Common_file/grpc_grpc.py;
-    python3 grpc_grpc.py &
+    python3 grpc_server.py 50051 &
 }
 
 setup_grpcs() {
-    cd /Common_file/
-    cp /Common_file/grpc2.py /Common_file/grpc_grpcs.py;
-    python3 grpc_grpcs.py &
+    python3 grpc_server.py 50052 &
 }
 
 setup_fg_cmd() {
-    cd /Common_file/
     if [ -z "$FG_CMD" ];then
         return
     fi
@@ -89,7 +78,6 @@ setup_fg_cmd() {
 }
 
 setup_bg_cmd() {
-    cd /Common_file/
     if [ -z "$BG_CMD" ];then
         return
     fi
@@ -106,11 +94,21 @@ echo '== ====='
 setup_fg_cmd
 setup_bg_cmd
 
-setup_tcp
-setup_tcp_stream
-setup_udp
-setup_grpc
-setup_grpcs
 setup_http
 setup_https
+
+setup_grpc
+setup_grpcs
+
+setup_udp
+
+setup_tcp
+setup_tcp_stream
+
+while true
+do
+    if ! sleep 1000;then
+        break
+    fi
+done
 

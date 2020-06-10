@@ -5,57 +5,9 @@ import socketserver
 import ssl
 import sys
 import time
-import socket
+import common
 
 proto = [""]
-bodysleep = 0
-
-def parse_as_header(data):
-    data2 = {}
-    for a in data.splitlines():
-        kvs = [a]
-        if ";" in a:
-            kvs = a.strip().split(";")
-        for kv in kvs:
-            kvlist = kv.strip().split("=", 1)
-            if len(kvlist) == 2:
-                data2[kvlist[0].strip()] = kvlist[1].strip()
-    return data2
-
-def get_content2(proto, infos, peer, me, kvs):
-    status = 200
-
-    s = "Host: %s\n" % socket.gethostname()
-    s += "C->S: %s -> %s\n" % (peer, me)
-    s += "Proto: %s\n" % proto
-
-    for k,v in infos:
-        s += "%s: %s\n" % (k, v)
-
-    s += "  Head:\n"
-    for k, v in kvs.items():
-        s += "    %s: %s\n" % (k, v)
-        if k.lower() == "HTTPSTATUS":
-            status = int(v) if v.isdigit() else 400
-
-    l = kvs.get("L", "")
-    if l.isdigit():
-        s += "=" * int(l)
-        s += "\n"
-
-    l = kvs.get("SLEEP", "")
-    if l.isdigit():
-        time.sleep(int(l))
-
-    global bodysleep
-    bodysleep = 0
-    l = kvs.get("BODYSLEEP", "")
-    if l.isdigit():
-        bodysleep = int(l)
-
-    s = "<html><body><pre>\n%s\n</pre></body></html>\n" % s
-
-    return status, s.encode("utf-8")
 
 def get_content(self):
     infos = [
@@ -64,18 +16,20 @@ def get_content(self):
             ( "Path", self.path ),
             ]
 
-    return get_content2(proto[0], infos, self.connection.getpeername(), self.connection.getsockname(), self.headers)
+    return common.get_content(proto[0], infos, self.connection.getpeername(), self.connection.getsockname(), self.headers)
 
 def do_GET2(self):
-    status, msg = get_content(self)
+    status, msg, kvs = get_content(self)
     print(self.headers)
 
     self.send_response(status)
     self.send_header("Content-type", "text/html")
     self.end_headers()
-    if bodysleep > 0:
-        time.sleep(bodysleep)
-        print("body sleep %s" % bodysleep)
+
+    l = kvs.get("BODYSLEEP", "")
+    if l.isdigit() and int(l) > 0:
+        print(" ** body sleeping", l)
+        time.sleep(int(l))
     self.wfile.write(msg)
 
 def do_POST2(self):
@@ -84,7 +38,7 @@ def do_POST2(self):
     if content_length > 0:
         post_data = self.rfile.read(content_length)
 
-    status, msg = get_content(self)
+    status, msg, _ = get_content(self)
 
     self.send_response(status)
     self.send_header("Content-type", "text/html")
@@ -95,9 +49,9 @@ def run_https(port, handler):
     proto[0] = "https"
     httpd = http.server.HTTPServer(("", port), handler)
     httpd.socket = ssl.wrap_socket (httpd.socket,
-            keyfile="./ssl.key",
-            certfile='./ssl.crt',
-            ca_certs="./ca.crt",
+            keyfile="./cert/ssl.key",
+            certfile='./cert/ssl.crt',
+            ca_certs="./cert/ca.crt",
             ssl_version=ssl.PROTOCOL_SSLv23,
             cert_reqs=ssl.CERT_OPTIONAL,
             #cert_reqs=ssl.CERT_REQUIRED,
@@ -114,7 +68,9 @@ def run_http(port, handler):
 def main():
     port = 80
     if len(sys.argv) >= 2:
-        port = int(sys.argv[1])
+        port = int(sys.argv[-1])
+
+    print("Serving http on %s" %(sys.argv[1:]))
 
     Handler = http.server.SimpleHTTPRequestHandler
     Handler.do_GET = do_GET2
@@ -122,7 +78,7 @@ def main():
     Handler.do_PUT = do_POST2
     Handler.do_DELETE = do_POST2
 
-    if "https" in sys.argv[0]:
+    if "https" in sys.argv:
         run_https(port, Handler)
     else:
         run_http(port, Handler)
