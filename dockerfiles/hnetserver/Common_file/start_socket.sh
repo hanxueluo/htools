@@ -66,7 +66,7 @@ setup_grpc() {
 }
 
 setup_grpcs() {
-    python3 grpc_server.py 50052 &
+    python3 grpc_server.py grpcs 50052 &
 }
 
 setup_fg_cmd() {
