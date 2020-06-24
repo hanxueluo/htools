@@ -3,6 +3,7 @@ import sys
 import difflib
 import time
 import subprocess
+import datetime
 
 IDENTIFY_LINE=None
 
@@ -63,6 +64,7 @@ class Watcher(object):
             IDENTIFY_LINE = line
 
         if line == IDENTIFY_LINE:
+            print "============= ", datetime.datetime.now()
             self.commit()
 
         if not ignore_line(line):
