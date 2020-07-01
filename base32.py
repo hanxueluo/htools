@@ -1,4 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+
+from __future__ import print_function
 import base64
 import sys
 
@@ -10,11 +12,12 @@ if op == "-d":
     with open(fn, "r") as f:
         i = f.read()
         i = i.strip()
-        print base64.b32decode(i),
+        i = i.encode("utf-8")
+        print(base64.b32decode(i).decode("utf-8"), end='')
 else:
     fn = sys.argv[1]
     i = ""
     with open(fn, "r") as f:
         i = f.read()
-        print base64.b32encode(i)
-        #print base64.b32encode(i).lower(),
+        i = i.encode("utf-8")
+        print(base64.b32encode(i).decode("utf-8"))
