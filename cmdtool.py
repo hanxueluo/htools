@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import os
 import subprocess
 import sys
@@ -10,11 +11,9 @@ import re
 class Utility:
 
     @staticmethod
-    def print_to_stderr(message, newilne=True):
-        print >> sys.stderr, "# ", message,
-        if newilne:
-            print >> sys.stderr, ""
-        sys.stderr.flush()
+    def print_to_stderr(message, newline=True):
+        end = '\n' if newline else ''
+        print("# ", message, file=sys.stderr, end=end, flush=True)
 
     @staticmethod
     def write_file(filename, content):

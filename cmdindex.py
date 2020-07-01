@@ -124,7 +124,7 @@ class Executor(object):
         return kind, resource
 
     def kube_execute1(self, namespace, action, kind, resource, option):
-        print '1######## ', namespace, action, kind, resource, option.raw
+        print('1######## ', namespace, action, kind, resource, option.raw)
         out = ""
         if action == "get":
             if len(namespace) > 2:
@@ -134,7 +134,7 @@ class Executor(object):
         return lines
 
     def kube_execute(self, namespace, action, kind, resource, option):
-        print '2######## ', namespace, action, kind, resource, option.raw
+        print('2######## ', namespace, action, kind, resource, option.raw)
         return []
 
     def _patch_ndoe_ip(self, lines):
@@ -228,7 +228,7 @@ class Executor(object):
                 return
 
         lines = self.kube_execute(namespace, action, kind, resource, KubeOption(option.raw + self.others))
-        print "\n".join(lines)
+        print("\n".join(lines))
 
     def format_namespace(self, lines, kind, namespace):
         if namespace:
@@ -256,7 +256,7 @@ class Executor(object):
 
         if tofile:
             Utility.write_file(KUBECTL_GET_TMPFILE + "." + kind, result + "\n")
-        print result
+        print(result)
         return lines
 
     def select_by_pattern(self, lines, pattern):
@@ -318,9 +318,9 @@ class Executor(object):
 def test():
     # 1. resource is "", but others is not
     Executor("get", "pod", "/ipam-", []).execute()
-    print '====='
+    print('=====')
     Executor("describe", "pod", ".test", []).execute()
-    print '====='
+    print('=====')
     Executor("get", "pod", "test-7d9f4c8b75-4k2c9", []).execute()
 
 def main2(argv):
@@ -337,7 +337,7 @@ def main2(argv):
     if argv and argv[-1][0] != "-":
         resource = argv.pop()
     argv.reverse()
-    print (action, kind, resource, argv)
+    print(action, kind, resource, argv)
     Executor(action, kind, resource, argv).execute()
 
 
