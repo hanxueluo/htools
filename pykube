@@ -335,7 +335,7 @@ class Executor(object):
             lines = self.kube_execute(namespace, action, kind, " ".join(ress), option)
             print "\n".join(lines)
 
-        self.execute_list()        
+        self.execute_list()
 
     def format_namespace(self, lines, kind, namespace):
         if namespace:
@@ -481,6 +481,7 @@ def main(argv):
     kind = ""
     resource = "."
     resource_list = []
+    others = []
 
     argv = argv[:]
     argv.reverse()
@@ -491,14 +492,15 @@ def main(argv):
     if argv and argv[-1][0] != "-":
         resource = argv.pop()
 
-    others = []
+    argv.reverse()
     for ar in argv:
         if ar.isdigit():
             resource_list.append(ar)
         else:
+            # FIXME: if the options container digit, such as `klp 1 2 -n 10`, the digit will
+            # be append into the resource_list, that will cause unexpected error.
             others.append(ar)
-    others.reverse()
-
+    others = others + argv[len(resource_list)+len(others):]
     Executor(action, kind, resource, others=others, resource_list=resource_list).execute()
 
 
