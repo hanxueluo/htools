@@ -13,7 +13,8 @@ class Utility:
     @staticmethod
     def print_to_stderr(message, newline=True):
         end = '\n' if newline else ''
-        print("# ", message, file=sys.stderr, end=end, flush=True)
+        print("# ", message, file=sys.stderr, end=end)
+        sys.stderr.flush()
 
     @staticmethod
     def write_file(filename, content):

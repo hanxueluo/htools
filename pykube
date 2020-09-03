@@ -32,7 +32,8 @@ if not os.path.isdir(tmpdir):
 
 def print_to_stderr(message, newline=True):
     end = '\n' if newline else ''
-    print("# ", message, file=sys.stderr, end=end, flush=True)
+    print("# ", message, file=sys.stderr, end=end)
+    sys.stderr.flush()
 
 
 class Utility:
