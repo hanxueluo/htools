@@ -33,6 +33,9 @@ def find_in_cache(lines, kind, resource):
             res.append(l)
     return res
 
+def get_list_actions():
+    return ["lk", "la", "ls"]
+
 class DockerExtraCommand(object):
     def __init__(self, kind, action, resource, option, cache):
         super(DockerExtraCommand, self).__init__()
@@ -44,10 +47,10 @@ class DockerExtraCommand(object):
 
     def run(self):
         if self.kind == "container":
-            if not self.action in ["ks", "nx", "u", "d"]:
+            if not self.action in ["lk", "la", "nx", "u", "d"]:
                 return False, 0, "", ""
-            if self.action == "ks":
-                code, out, err  = self.cmd_kube_ls()
+            if self.action in get_list_actions():
+                code, out, err  = self.cmd_container_ls(self.action)
             elif self.action == "nx":
                 code, out, err  = self.cmd_netns_execute()
             elif self.action == "u":
@@ -73,32 +76,55 @@ class DockerExtraCommand(object):
         d = {}
         content = Utility.read_file(config_file)
         js = json.loads(content)
-        pid = int(js[u"State"]["Pid"])
+
+
+        # get pid and net ns
+        pid = int(js[u"State"][u"Pid"])
         if pid == 0:
-            return d
-
-        path = js[u"Path"]
-        if path == u"/pause":
-            return d
-
-        ip = [ s for s in js[u"Config"][u"Env"] if s.startswith(u"POD_IP=") ]
-        if ip:
-            ip = ip[0].split("=",1)[1]
-        else:
-            ip = u"-"
-
-        labes = js[u"Config"][u"Labels"]
-        pname = labes[u"io.kubernetes.pod.name"]
-        cname = labes[u"io.kubernetes.container.name"]
-
-        if cname in [u"POD", u"c1", u"c0"]:
-            cname = "-"
-
+            pass
         try:
             netns = os.readlink("/proc/%s/ns/net" % pid)
             netns = netns.split('[')[-1].strip(']')
         except:
             netns = "-"
+
+        # get started time
+        started = js[u"State"][u"StartedAt"]
+
+        # get path
+        path = js[u"Path"]
+        if path == u"/pause":
+            return d
+
+        # get IP
+        ip = u""
+        nets = js.get(u"NetworkSettings", {}).get(u"Networks", {})
+        if isinstance(nets, dict):
+            for v in nets.itervalues():
+                ip = v.get(u"IPAddress", u"")
+                if ip:
+                    break
+
+        if not ip:
+            ips = [ s for s in js[u"Config"][u"Env"] if s.startswith(u"POD_IP=") ]
+            if ips:
+                ip = ips[0].split("=",1)[1]
+
+        if not ip:
+            ip = u"-"
+
+        # get container name
+        cname = js[u"Name"].lstrip(u"/")
+
+        labes = js[u"Config"][u"Labels"]
+        cname2 = labes.get(u"io.kubernetes.container.name", u"")
+        if cname2 in [u"POD", u"c1", u"c0", u"c2"]:
+            cname2 = u"-"
+        if cname2 != u"":
+            cname = cname2
+
+        # get pod name
+        pname = labes.get(u"io.kubernetes.pod.name", u"-")
 
         id_ = js[u"ID"][:12]
         d = {
@@ -110,6 +136,7 @@ class DockerExtraCommand(object):
                 "cname": cname,
                 "netns": netns,
                 "vethpeer": "-",
+                "started": started,
                 }
         return d
 
@@ -189,7 +216,7 @@ class DockerExtraCommand(object):
             iface = netdata.get(v.get("netns", "-"), "-")
             v["vethpeer"] = iface
 
-    def cmd_kube_ls(self):
+    def cmd_container_ls(self, action):
         data = self._load_kube_data()
         columns = [("id", "CONTAINER ID"), "pid", "ip", "cname", "pname"]
         if self.resource:
@@ -199,11 +226,16 @@ class DockerExtraCommand(object):
                 self._complete_iface(data)
             else:
                 return 1, "", "%s doesn't exist" % self.resource
-        out = self._format_result(data, columns)
+        data2 = data.copy()
+        if action != "la":
+            for k, v in data.iteritems():
+                if v[u"pid"] == 0:
+                    del data2[k]
+
+        out = self._format_result(data2, columns)
         return 0, out, ""
 
     def test(self):
-        #self._load_kube_data()
         print(self._get_net_data())
 
 
@@ -386,12 +418,6 @@ class DockerExecutor(object):
 
     def raw_execute(self, kind, action, resource, option):
         opt = CmdOption(option.raw)
-        if action == "ls" and kind == "container":
-            if option.has("-d"):
-                opt = option.remove_arg("-d")
-                resource = ""
-            else:
-                action = "ls" if platform.system() != "Linux" else "ks"
 
         if kind == "image":
             if resource:
@@ -475,7 +501,7 @@ class DockerExecutor(object):
         return do_filter(lines, f, None)
 
     def get_list_action(self):
-        return "ls"
+        return get_list_actions()[0]
 
     def accept_no_resource(self, action):
         return action in ["prune", "repo"]
@@ -508,6 +534,7 @@ class DockerExecutor(object):
         resource = ""
         option = self.get_option(self.others)
 
+        #import pdb;pdb.set_trace()
         # 1. expand namespace and resource
         hasfilter = False
         if self.resource.isdigit():
@@ -532,7 +559,7 @@ class DockerExecutor(object):
 
         # 2. first call
         lines = None
-        if self.get_list_action() == action:
+        if action in get_list_actions():
             lines = self.raw_execute(kind, action, resource, option)
             title = lines[0]
             lines = self.select_by_pattern(lines[1:], _pattern)
@@ -619,7 +646,7 @@ def test2():
     d.test()
 
 def main(argv):
-    action = "ls"
+    action = "lk"
     kind = "container"
     resource = ""
 
