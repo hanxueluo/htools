@@ -316,13 +316,13 @@ class DockerExecutor(object):
     def complete_tag_repo(self, repo):
         repo_shortcut = {
                 "do": "cargo-infra.caicloud.xyz/devops_release/",
-                "net": "net.caicloudprivatetest.com/release/",
+                "net": "net.cargo.io/release/",
                 "test": "test.caicloudprivatetest.com/release/",
                 "cg": "cargo.caicloudprivatetest.com/caicloud/",
                 "ra": "regression-a.cargo.io/release/",
                 "rb": "regression-b.cargo.io/release/",
                 "rc": "regression-c.cargo.io/release/",
-                "n": "net.caicloudprivatetest.com",
+                "n": "net.cargo.io",
                 "c": "cargo.caicloudprivatetest.com",
                 "i": "cargo-infra.caicloud.xyz",
                 }
