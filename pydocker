@@ -33,8 +33,15 @@ def find_in_cache(lines, kind, resource):
             res.append(l)
     return res
 
-def get_list_actions():
-    return ["lk", "la", "ls"]
+def is_list_action(action):
+    return action in ["lk", "la", "ls"]
+
+def get_list_action(kind):
+    if kind == "container":
+        return "lk"
+    else:
+        return "ls"
+
 
 class DockerExtraCommand(object):
     def __init__(self, kind, action, resource, option, cache):
@@ -49,7 +56,7 @@ class DockerExtraCommand(object):
         if self.kind == "container":
             if not self.action in ["lk", "la", "nx", "u", "d"]:
                 return False, 0, "", ""
-            if self.action in get_list_actions():
+            if is_list_action(self.action):
                 code, out, err  = self.cmd_container_ls(self.action)
             elif self.action == "nx":
                 code, out, err  = self.cmd_netns_execute()
@@ -418,6 +425,8 @@ class DockerExecutor(object):
 
     def raw_execute(self, kind, action, resource, option):
         opt = CmdOption(option.raw)
+        if is_list_action(action) and kind != "container":
+	    action = "ls"
 
         if kind == "image":
             if resource:
@@ -500,9 +509,6 @@ class DockerExecutor(object):
         f = get_patter_selector(pattern)
         return do_filter(lines, f, None)
 
-    def get_list_action(self):
-        return get_list_actions()[0]
-
     def accept_no_resource(self, action):
         return action in ["prune", "repo"]
 
@@ -550,7 +556,7 @@ class DockerExecutor(object):
             else:
                 resource = ""
                 hasfilter = True
-                action = self.get_list_action()
+                action = get_list_action(kind)
         elif self.resource.startswith("/") or self.resource.startswith("@"):
             _pattern = self.resource
             hasfilter = True
@@ -559,7 +565,7 @@ class DockerExecutor(object):
 
         # 2. first call
         lines = None
-        if action in get_list_actions():
+        if is_list_action(action):
             lines = self.raw_execute(kind, action, resource, option)
             title = lines[0]
             lines = self.select_by_pattern(lines[1:], _pattern)
@@ -569,7 +575,7 @@ class DockerExecutor(object):
             self.output_result(lines, kind, resource == "")
             return
         elif hasfilter:
-            lines = self.raw_execute(kind, self.get_list_action(), resource, self.get_option([]))
+            lines = self.raw_execute(kind, get_list_action(kind), resource, self.get_option([]))
             lines = self.select_by_pattern(lines[1:], _pattern)
             if len(_pattern) == 1 and lines: # select latest one if pattern is empty
                 lines = [lines[0]]
@@ -584,7 +590,7 @@ class DockerExecutor(object):
         option = self.get_option(option.raw)
         if not resource:
             if not self.accept_no_resource(action):
-                action = self.get_list_action()
+                action = get_list_action(kind)
                 option = self.get_option([])
 
         if " " in resource and self.risky_for_batch(action):
