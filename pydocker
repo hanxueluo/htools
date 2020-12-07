@@ -426,7 +426,7 @@ class DockerExecutor(object):
     def raw_execute(self, kind, action, resource, option):
         opt = CmdOption(option.raw)
         if is_list_action(action) and kind != "container":
-	    action = "ls"
+            action = "ls"
 
         if kind == "image":
             if resource:
