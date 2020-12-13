@@ -1,0 +1,7 @@
+TYPE=Ethernet
+BOOTPROTO=static
+IPADDR=172.18.24.@i@
+PREFIX=24
+NAME=eth1
+DEVICE=eth1
+ONBOOT=yes
