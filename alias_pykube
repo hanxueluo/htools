@@ -101,7 +101,24 @@ _k_setup_docker_alias() {
     fi
 }
 
+_k_setup_crictl_alias() {
+    local PYFILE=
+    for file in /root/hroot/htools/pycrictl ~/work/htools/pycrictl ~/htools/pycrictl
+    do
+        if test -e "$file";then
+            PYFILE=$file
+            break
+        fi
+    done
+
+    if test -n "$PYFILE";then
+        alias cri="$PYFILE"
+    fi
+}
+
+
 if test -n "$PYKUBE";then
     _k_setup_alias
     _k_setup_docker_alias
+    _k_setup_crictl_alias
 fi

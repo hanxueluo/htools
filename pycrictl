@@ -17,8 +17,8 @@ import glob
 import json
 import platform
 
-KUBECTL_GET_TMPFILE="/tmp/hhl.docker_alias/get.tmpfile"
-KUBECTL_GET_LAST_ITEM="/tmp/hhl.docker_alias/get.last"
+KUBECTL_GET_TMPFILE="/tmp/hhl.crictl_alias/get.tmpfile"
+KUBECTL_GET_LAST_ITEM="/tmp/hhl.crictl_alias/get.last"
 
 tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
 if not os.path.isdir(tmpdir):
@@ -33,15 +33,11 @@ def find_in_cache(lines, kind, resource):
             res.append(l)
     return res
 
-def is_list_action(action):
-    return action in ["lk", "la", "ls"]
+def is_list_action(a):
+    return a in ["ps", "pods"]
 
 def get_list_action(kind):
-    if kind == "container":
-        return "lk"
-    else:
-        return "ls"
-
+    return "ps"
 
 class DockerExtraCommand(object):
     def __init__(self, kind, action, resource, option, cache):
@@ -54,7 +50,7 @@ class DockerExtraCommand(object):
 
     def run(self):
         if self.kind == "container":
-            if not self.action in ["lk", "la", "nx", "u", "d"]:
+            if not self.action in ["nx", "u", "d"]:
                 return False, 0, "", ""
             if is_list_action(self.action):
                 code, out, err  = self.cmd_container_ls(self.action)
@@ -460,15 +456,16 @@ class DockerExecutor(object):
             kind = "container"
             opt = CmdOption([])
 
+        if kind == "container": kind = ""
         args = " ".join([
-                "docker",
+                "crictl",
                 kind,
                 action,
                 resource
                 ]).split() + opt.raw
 
         if action == "exec":
-            args.insert(3, "-it")
+            args.insert(2, "-it")
             if not option.raw:
                 args += ["bash"]
         if action == "run":
@@ -652,14 +649,17 @@ def test2():
     d.test()
 
 def main(argv):
-    action = "lk"
+    action = "pods"
     kind = "container"
     resource = ""
 
     argv = argv[:]
     argv.reverse()
     if argv and argv[-1][0] != "-":
-        kind = argv.pop()
+        if argv[-1] in ["image", "container", "i"]:
+            kind = argv.pop()
+            if kind == "i": kind = "image"
+
     if argv and argv[-1][0] != "-":
         if argv[-1].isalpha():
             action = argv.pop()
