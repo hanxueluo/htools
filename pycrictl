@@ -1,0 +1,675 @@
+#!/usr/bin/env python
+# TODO LIST:
+# support multiple do
+
+# list veth, list ip for "doc ls"
+# list pid and nx for "doc ls -d"
+
+# doi repo // /etc/hosts ... # pydocker: AIALS:REPO
+
+from __future__ import print_function
+import os
+import subprocess
+import sys
+import re
+from cmdindex import *
+import glob
+import json
+import platform
+
+KUBECTL_GET_TMPFILE="/tmp/hhl.docker_alias/get.tmpfile"
+KUBECTL_GET_LAST_ITEM="/tmp/hhl.docker_alias/get.last"
+
+tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
+if not os.path.isdir(tmpdir):
+    os.mkdir(tmpdir)
+
+def find_in_cache(lines, kind, resource):
+    column = 2 if kind == "image" else 0
+    res = []
+    resources = resource.split()
+    for l in lines:
+        if l.split()[column] in resources:
+            res.append(l)
+    return res
+
+def is_list_action(action):
+    return action in ["lk", "la", "ls"]
+
+def get_list_action(kind):
+    if kind == "container":
+        return "lk"
+    else:
+        return "ls"
+
+
+class DockerExtraCommand(object):
+    def __init__(self, kind, action, resource, option, cache):
+        super(DockerExtraCommand, self).__init__()
+        self.action = action
+        self.kind = kind
+        self.resource = resource
+        self.option = option
+        self.cache = cache
+
+    def run(self):
+        if self.kind == "container":
+            if not self.action in ["lk", "la", "nx", "u", "d"]:
+                return False, 0, "", ""
+            if is_list_action(self.action):
+                code, out, err  = self.cmd_container_ls(self.action)
+            elif self.action == "nx":
+                code, out, err  = self.cmd_netns_execute()
+            elif self.action == "u":
+                code, out, err  = self.cmd_copy_upload()
+            elif self.action == "d":
+                code, out, err  = self.cmd_copy_download()
+            else:
+                code, out, err  = 2, "", "not implemented"
+            return True, code, out, err
+        elif self.kind == "image":
+            if not self.action in ["dis", "repo"]:
+                return False, 0, "", ""
+            if self.action == "dis":
+                code, out, err  = self.cmd_tag_dis()
+            elif self.action == "repo":
+                code, out, err  = self.cmd_repo_ls()
+            else:
+                code, out, err  = 2, "", "not implemented"
+            return True, code, out, err
+        return False, 0, "", ""
+
+    def _load_one_container_data(self, config_file):
+        d = {}
+        content = Utility.read_file(config_file)
+        js = json.loads(content)
+
+
+        # get pid and net ns
+        pid = int(js[u"State"][u"Pid"])
+        if pid == 0:
+            pass
+        try:
+            netns = os.readlink("/proc/%s/ns/net" % pid)
+            netns = netns.split('[')[-1].strip(']')
+        except:
+            netns = "-"
+
+        # get started time
+        started = js[u"State"][u"StartedAt"]
+
+        # get path
+        path = js[u"Path"]
+        if path == u"/pause":
+            return d
+
+        # get IP
+        ip = u""
+        nets = js.get(u"NetworkSettings", {}).get(u"Networks", {})
+        if isinstance(nets, dict):
+            for v in nets.itervalues():
+                ip = v.get(u"IPAddress", u"")
+                if ip:
+                    break
+
+        if not ip:
+            ips = [ s for s in js[u"Config"][u"Env"] if s.startswith(u"POD_IP=") ]
+            if ips:
+                ip = ips[0].split("=",1)[1]
+
+        if not ip:
+            ip = u"-"
+
+        # get container name
+        cname = js[u"Name"].lstrip(u"/")
+
+        labes = js[u"Config"][u"Labels"]
+        cname2 = labes.get(u"io.kubernetes.container.name", u"")
+        if cname2 in [u"POD", u"c1", u"c0", u"c2"]:
+            cname2 = u"-"
+        if cname2 != u"":
+            cname = cname2
+
+        # get pod name
+        pname = labes.get(u"io.kubernetes.pod.name", u"-")
+
+        id_ = js[u"ID"][:12]
+        d = {
+                "id": id_,
+                "driver": pid,
+                "pid": pid,
+                "ip": ip,
+                "pname": pname,
+                "cname": cname,
+                "netns": netns,
+                "vethpeer": "-",
+                "started": started,
+                }
+        return d
+
+    def _load_kube_data(self):
+        path = "/var/lib/docker/containers/*/config.v2.json"
+        data = {}
+        for cf in glob.glob(path):
+            try:
+                d = self._load_one_container_data(cf)
+            except Exception as e:
+                Utility.print_to_stderr("exception when load %s: %s" % (cf, e))
+                continue
+            if d:
+                data[d["id"]] = d
+        return data
+
+    def _get_net_data(self, nslist=None):
+        netdata = {}
+        code, out, err = Utility.execute("lsns -tnet --output=NS,PID -n".split())
+
+        netIndex = {}
+        if out:
+            for i in glob.glob("/sys/class/net/*/ifindex"):
+                index = Utility.read_file(i).strip()
+                netIndex[index] = i.split("/")[4]
+
+        for l in out.splitlines():
+            items =  l.split()
+            if nslist is not None and items[0] not in nslist:
+                continue
+            if items[1] == "1":
+                netdata[items[0]] = "-"
+            code, out, _ = Utility.execute("nsenter -t {} -n ip link show eth0".format(items[1]).split())
+            if code != 0:
+                continue
+            index = out.split(":", 2)[1].rsplit("f",1)[-1]
+            iface = netIndex.get(index, "-")
+            netdata[items[0]] = iface
+        return netdata
+
+    def _format_result(self, data, columns):
+        res_list = []
+        for i, c in enumerate(columns):
+            if type(c) is str:
+                columns[i] = (c, c.upper())
+
+        res_list.append([ n for _, n in columns ])
+        for d in data.itervalues():
+            r = []
+            for k, _ in columns:
+                r.append(str(d.get(k, "-")))
+            res_list.append(r)
+
+
+        len_list = [0] * len(columns)
+        for line in res_list:
+            for i, word in enumerate(line):
+                len_list[i] = max(len_list[i], len(word))
+
+        ss = ""
+        for line in res_list:
+            s = ""
+            for i, word in enumerate(line):
+                l = len_list[i]
+                fmt = '%-{}s '.format(l)
+                s += fmt % word
+            ss += s.rstrip() + "\n"
+        return ss
+
+    def _complete_iface(self, data):
+        nslist = set()
+        for v in data.itervalues():
+            nslist.add(v.get("netns", "-"))
+
+        netdata = self._get_net_data(nslist)
+        for v in data.itervalues():
+            iface = netdata.get(v.get("netns", "-"), "-")
+            v["vethpeer"] = iface
+
+    def cmd_container_ls(self, action):
+        data = self._load_kube_data()
+        columns = [("id", "CONTAINER ID"), "pid", "ip", "cname", "pname"]
+        if self.resource:
+            if self.resource in data:
+                columns.insert(3, "vethpeer")
+                data = { self.resource: data[self.resource] }
+                self._complete_iface(data)
+            else:
+                return 1, "", "%s doesn't exist" % self.resource
+        data2 = data.copy()
+        if action != "la":
+            for k, v in data.iteritems():
+                if v[u"pid"] == 0:
+                    del data2[k]
+
+        out = self._format_result(data2, columns)
+        return 0, out, ""
+
+    def test(self):
+        print(self._get_net_data())
+
+
+    def cmd_netns_execute(self):
+        lines = find_in_cache(self.cache, self.kind, self.resource)
+        if not lines:
+            return 1, "", "%s doesn't exist" % self.resource
+
+        for line in lines:
+            pid = line.split()[1]
+            cmd = self.option.raw
+            if not cmd:
+                cmd = ["bash"]
+            args = ["nsenter", "-t", pid, "-n"] + cmd
+            Utility.print_to_stderr(" ".join(args))
+            try:
+                code, out, err = Utility.execute(args, True)
+                if code != 0:
+                    print("= error code:", code)
+            except KeyboardInterrupt:
+                code = 1
+                out = ""
+                err = "KeyboardInterrupt"
+                break
+        return code, "", ""
+
+    def cmd_copy_upload(self):
+        ids = self.resource.split()
+        if not ids:
+            return 1, "", "%s doesn't exist" % self.resource
+
+        for id_ in ids:
+            src = self.option.raw[0]
+            dst = self.option.raw[1] if len(self.option.raw) > 1 else "/tmp/"
+            args = ["docker", "cp", src, "%s:%s" % (id_, dst)]
+            Utility.print_to_stderr(" ".join(args))
+            try:
+                code, out, err = Utility.execute(args, True)
+                if code != 0:
+                    print("= error code:", code)
+            except KeyboardInterrupt:
+                code = 1
+                out = ""
+                err = "KeyboardInterrupt"
+                break
+        return code, "", ""
+
+    def cmd_copy_download(self):
+        ids = self.resource.split()
+        if len(ids) != 1:
+            return 1, "", "too many or empty ids: %s" % self.resource
+
+        for id_ in ids:
+            src = self.option.raw[0]
+            dst = self.option.raw[1] if len(self.option.raw) > 1 else "./"
+            args = ["docker", "cp", "%s:%s" % (id_, src), dst]
+            Utility.print_to_stderr(" ".join(args))
+            try:
+                code, out, err = Utility.execute(args, True)
+                if code != 0:
+                    print("= error code:", code)
+            except KeyboardInterrupt:
+                code = 1
+                out = ""
+                err = "KeyboardInterrupt"
+                break
+        return code, "", ""
+
+    def cmd_tag_dis(self):
+        out = "\n".join(self.resource.split())
+        return 0, out, ""
+
+    def cmd_repo_ls(self):
+        repos = []
+        for line in Utility.read_file("/etc/hosts").splitlines():
+            if "# cargo:" in line:
+                items = line.lstrip("#").strip().split()
+                repos.append(items)
+        print(repos)
+        return 0, "", ""
+
+
+class DockerExecutor(object):
+    def __init__(self, kind, action, resource="", others=""):
+        super(DockerExecutor, self).__init__()
+        self.action = { "i": "inspect",
+                "k": "kill",
+                "l": "logs",
+                "h": "history",
+                "x": "exec"
+                }.get(action, action)
+        self.kind = kind
+        self.resource = resource
+        self.others = others.split() if type(others) is str else others
+        self.cache = {}
+
+    def save_cache(self, lines):
+        self.cache = lines
+
+    def unpack_image_id(self, ids):
+        res = ""
+        for one in ids.split():
+            repo, tag, id_ = one.split("|")
+            if tag != "<none>":
+                res += "%s:%s " % (repo, tag)
+            else:
+                res += id_ + " "
+        return res.rstrip()
+
+    def complete_tag_repo(self, repo):
+        repo_shortcut = {
+                "do": "cargo-infra.caicloud.xyz/devops_release/",
+                "net": "net.cargo.io/release/",
+                "test": "test.caicloudprivatetest.com/release/",
+                "cg": "cargo.caicloudprivatetest.com/caicloud/",
+                "ra": "regression-a.cargo.io/release/",
+                "rb": "regression-b.cargo.io/release/",
+                "rc": "regression-c.cargo.io/release/",
+                "n": "net.cargo.io",
+                "c": "cargo.caicloudprivatetest.com",
+                "i": "cargo-infra.caicloud.xyz",
+                }
+        path_shortcut = {
+                "l": "library", "c": "caicloud", "r": "release", "d": "devops_release",
+                }
+
+        if repo in repo_shortcut:
+            return repo_shortcut.get(repo, repo)
+        if "/" not in repo:
+            return repo
+
+        items = repo.split("/")
+        a = repo_shortcut.get(items[0], items[0])
+        b = path_shortcut.get(items[1], items[1])
+        items2 = [a, b]
+        items2.extend(items[2:])
+        return "/".join(items2)
+
+    def complete_tag_arg(self, resource, option):
+
+        src = resource.split()[0]
+
+        if not option.raw:
+            return src, "", ""
+        dst = option.raw[0].strip("/")
+        dst_repo = ""
+        dst_tag = ""
+        if ":" in dst:
+            if dst[0] != ":": # dst == "REPO:TAG"
+                dst_repo, dst_tag = dst.split(":", 1)
+                dst_repo = self.complete_tag_repo(dst_repo)
+            else: # dst == ":TAG"
+                dst_tag = dst[1:]
+        else:
+            dst_repo = self.complete_tag_repo(dst)
+
+        src_repo, src_tag = "", ""
+        if ":" in src: # src is a tag"
+            src_repo, src_tag = src.split(":", 1)
+        else:
+            if dst_repo == "" or dst_tag == "" or dst_repo.endswith("/"):
+                return src, "", ""
+
+        if dst_tag == "":
+            dst_tag = src_tag
+
+        if dst_repo == "":
+            dst_repo = src_repo
+
+        if "/" in src_repo:
+            if "/" in dst_repo: # dst_repo == "domain/path"
+                if dst_repo.split("/")[-1] == src_repo.split("/")[-1]: # dst_repo is full path
+                    pass
+                else:
+                    dst_repo = dst_repo.strip("/") + "/" + src_repo.split("/")[-1]
+            else:  # dst_repo == "domain"
+                dst_repo = dst_repo.strip("/") + "/" + src_repo.split("/", 1)[-1]
+
+        return src, dst_repo, dst_tag
+
+    def raw_execute(self, kind, action, resource, option):
+        opt = CmdOption(option.raw)
+        if is_list_action(action) and kind != "container":
+            action = "ls"
+
+        if kind == "image":
+            if resource:
+                resource = self.unpack_image_id(resource)
+
+        if action == "tag":
+            resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
+            dst = "%s:%s" % (dst_repo, dst_tag)
+            with open(KUBECTL_GET_LAST_ITEM + "." + kind, "w") as f:
+                f.write("0 %s %s _ _ _\n" % (dst_repo, dst_tag))
+            opt = CmdOption([dst])
+
+        if action == "push":
+            resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
+            dst = "%s:%s" % (dst_repo, dst_tag)
+            if dst != ":":
+                args =  "docker image tag %s %s" % (resource, dst)
+                Utility.print_to_stderr(args)
+                code, _, _ = Utility.execute(args.split(), True)
+                resource = dst
+                opt = CmdOption([])
+
+        if action == "pull":
+            resource, dst_repo, dst_tag = self.complete_tag_arg(resource, option)
+            dst = "%s:%s" % (dst_repo, dst_tag)
+            if dst != ":":
+                resource = dst
+                opt = CmdOption([])
+
+        if action == "run":
+            kind = "container"
+            opt = CmdOption([])
+
+        args = " ".join([
+                "docker",
+                kind,
+                action,
+                resource
+                ]).split() + opt.raw
+
+        if action == "exec":
+            args.insert(3, "-it")
+            if not option.raw:
+                args += ["bash"]
+        if action == "run":
+            args.insert(3, "--rm")
+            if option.raw:
+                args.insert(4, "-it")
+                args.insert(5, "--entrypoint")
+                args.insert(6, " ".join(option.raw))
+            opt = CmdOption([])
+
+        Utility.print_to_stderr(" ".join(args))
+        use_stdout = action in ["exec", "logs", "stats", "top", "prune", "push", "pull", "run"]
+        try:
+            dec = DockerExtraCommand(kind, action, resource, opt, self.cache)
+            yes, code, out, err = dec.run()
+            if not yes:
+                code, out, err = Utility.execute(args, use_stdout)
+        except KeyboardInterrupt:
+            code = 1
+            err = "KeyboardInterrupt"
+
+        if code != 0:
+            Utility.print_to_stderr("cmd: %s, code: %s, err: %s" % (args, code, err))
+            sys.exit(1)
+        if err:
+            Utility.print_to_stderr("cmd %s: error:  %s" % (args, err))
+
+        lines = out.splitlines()
+        return lines
+
+    def get_option(self, ps):
+        return CmdOption(ps)
+
+    def select_by_pattern(self, lines, pattern):
+        if not pattern:
+            return lines
+
+        f = get_patter_selector(pattern)
+        return do_filter(lines, f, None)
+
+    def accept_no_resource(self, action):
+        return action in ["prune", "repo"]
+
+    def risky_for_batch(self, action):
+        return action == "rm"
+
+    def select_by_lineno(self, lines, linenos):
+        if not lines:
+            return lines
+        def _s(line, ext):
+            items = line.split()
+            b = items[0] in linenos #TODO reduce numbers
+            return b, ext
+
+        return do_filter(lines, _s, None)
+
+    def extract_id(self, lines, kind):
+        if not lines:
+            return lines
+        f = partial(column_extractor, 0)
+        if kind == "image":
+            f = lambda l: "|".join(l.split()[0:3])
+        return do_filter(lines, None, f)
+
+    def execute(self):
+        _pattern = ""
+        action = self.action
+        kind = self.kind
+        resource = ""
+        option = self.get_option(self.others)
+
+        #import pdb;pdb.set_trace()
+        # 1. expand namespace and resource
+        hasfilter = False
+        if self.resource.isdigit():
+            if self.resource != "0":
+                lines = Utility.read_file(KUBECTL_GET_TMPFILE + "." + kind).splitlines()
+            else:
+                lines = Utility.read_file(KUBECTL_GET_LAST_ITEM + "." + kind).splitlines()
+            lines = self.select_by_lineno(lines, [self.resource])
+            lines = self.del_line_number(lines)
+            if lines:
+                self.save_cache(lines)
+                resource = self.extract_id(lines, self.kind)[0]
+            else:
+                resource = ""
+                hasfilter = True
+                action = get_list_action(kind)
+        elif self.resource.startswith("/") or self.resource.startswith("@"):
+            _pattern = self.resource
+            hasfilter = True
+        else:
+            resource = self.resource
+
+        # 2. first call
+        lines = None
+        if is_list_action(action):
+            lines = self.raw_execute(kind, action, resource, option)
+            title = lines[0]
+            lines = self.select_by_pattern(lines[1:], _pattern)
+            self.save_cache(lines)
+            lines.insert(0, title)
+
+            self.output_result(lines, kind, resource == "")
+            return
+        elif hasfilter:
+            lines = self.raw_execute(kind, get_list_action(kind), resource, self.get_option([]))
+            lines = self.select_by_pattern(lines[1:], _pattern)
+            if len(_pattern) == 1 and lines: # select latest one if pattern is empty
+                lines = [lines[0]]
+            self.save_cache(lines)
+
+        # 3. second call
+        if lines is not None:
+            # TODO different namespaces
+            resources = self.extract_id(lines, kind)
+            resource = " ".join(resources)
+
+        option = self.get_option(option.raw)
+        if not resource:
+            if not self.accept_no_resource(action):
+                action = get_list_action(kind)
+                option = self.get_option([])
+
+        if " " in resource and self.risky_for_batch(action):
+            if not self.confirm_before_do("\nAre you sure to %s %s %s? (y/n) " % (action, kind, "\n\t" + resource.replace(" ", "\n\t") + "\n")):
+                Utility.print_to_stderr("Aborted.")
+                return
+
+        lines = self.raw_execute(kind, action, resource, option)
+        print("\n".join(lines))
+
+    def output_result(self, lines, kind, tofile):
+        if tofile:
+            lines = self.add_line_number(lines)
+
+        result = "\n".join(lines)
+
+        if tofile:
+            Utility.write_file(KUBECTL_GET_TMPFILE + "." + kind, result + "\n")
+        print(result)
+        return lines
+
+    def confirm_before_do(self, message):
+        Utility.print_to_stderr(message, False)
+        try:
+            r = raw_input()
+        except:
+            r = "n"
+        return r.strip().lower() in ["y", "yes"]
+
+    def add_line_number(self, lines):
+        def _e(index, line):
+            s = str(index[0])
+            index[0] = index[0] + 1
+            if line.startswith("NAME ") or line.startswith("NAMESPACE"):
+                s = "=="
+            return "%-2s %s" % (s, line)
+
+        return do_filter(lines, None, partial(_e, [0]))
+
+    def del_line_number(self, lines):
+        def _e(line):
+            return line.split(" ", 1)[-1].lstrip()
+        return do_filter(lines, None, _e)
+
+def test():
+    Executor = DockerExecutor
+    # 1. resource is "", but others is not
+    Executor("container", "ls").execute()
+    Executor("container", "ls", "/ngin").execute()
+    Executor("container", "stats", "/nginx").execute()
+    sys.exit(0)
+    Executor("image", "ls").execute()
+    Executor("image", "ls", "/ngin").execute()
+    Executor("image", "inspect", "/late").execute()
+    sys.exit(0)
+
+def test2():
+    d = DockerExtraCommand("container", "ls", "", [], "")
+    d.test()
+
+def main(argv):
+    action = "lk"
+    kind = "container"
+    resource = ""
+
+    argv = argv[:]
+    argv.reverse()
+    if argv and argv[-1][0] != "-":
+        kind = argv.pop()
+    if argv and argv[-1][0] != "-":
+        if argv[-1].isalpha():
+            action = argv.pop()
+    if argv and argv[-1][0] != "-":
+        resource = argv.pop()
+    argv.reverse()
+    DockerExecutor(kind, action, resource, argv).execute()
+
+if __name__ == "__main__":
+    #test2()
+    main(sys.argv[1:])
+    #test()
+
