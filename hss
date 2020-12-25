@@ -5,8 +5,6 @@ cd $(dirname $0)
 source ./hguess
 cd - >/dev/null
 
-dst_ip=$PC_IP
-
 do_help() {
     cat <<EOF
  ssh:
@@ -35,13 +33,6 @@ do_help() {
     - specify ssh option
 EOF
     exit
-}
-
-do_route_init() {
-    if ! ip route | grep -q "172.16.70.0/24 via $PC_IP";then
-        ip route add 172.16.70.0/24 via $PC_IP
-    fi
-    hss pc 'iptables -I FORWARD -o virbr0 -s 192.168.10/23 -m comment --comment "pc-fwd-vm" -j ACCEPT'
 }
 
 ACTION=ssh
@@ -119,7 +110,12 @@ do_each_action() {
             shift
             exec $PROCESS $dst "$@"
         else
-            echo "all guesses fail: $pw"
+            echo "all guesses fail: $pw."
+            echo "current guess:"
+            echo "  DEFAULT_PASSWD=$DEFAULT_PASSWD;TRY_PASSWD=$TRY_PASSWD"
+            echo "try new guess:"
+            echo "  export DEFAULT_PASSWD="
+            echo "  export TRY_PASSWD="
         fi
     fi
     exit
@@ -171,11 +167,6 @@ do_action() {
 
 if [ "$1"  = "-h" -o -z "$1" ];then
     do_help
-    exit
-fi
-
-if [ "$1"  = route ];then
-    do_route_init
     exit
 fi
 
