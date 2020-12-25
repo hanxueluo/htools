@@ -1,11 +1,4 @@
 #!/usr/bin/env python
-# TODO LIST:
-# support multiple do
-
-# list veth, list ip for "doc ls"
-# list pid and nx for "doc ls -d"
-
-# doi repo // /etc/hosts ... # pydocker: AIALS:REPO
 
 from __future__ import print_function
 import os
@@ -632,21 +625,6 @@ class DockerExecutor(object):
             return line.split(" ", 1)[-1].lstrip()
         return do_filter(lines, None, _e)
 
-def test():
-    Executor = DockerExecutor
-    # 1. resource is "", but others is not
-    Executor("container", "ls").execute()
-    Executor("container", "ls", "/ngin").execute()
-    Executor("container", "stats", "/nginx").execute()
-    sys.exit(0)
-    Executor("image", "ls").execute()
-    Executor("image", "ls", "/ngin").execute()
-    Executor("image", "inspect", "/late").execute()
-    sys.exit(0)
-
-def test2():
-    d = DockerExtraCommand("container", "ls", "", [], "")
-    d.test()
 
 def main(argv):
     action = "pods"
@@ -669,7 +647,5 @@ def main(argv):
     DockerExecutor(kind, action, resource, argv).execute()
 
 if __name__ == "__main__":
-    #test2()
     main(sys.argv[1:])
-    #test()
 
