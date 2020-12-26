@@ -1,0 +1,25 @@
+#!/bin/bash
+
+parse_url() {
+    local url=$1
+    url=${url%/*.git}
+
+    if [[ $url == git@* ]];then
+        url=${url#git@}
+        url=$(echo $url | sed 's/:/\//')
+    elif [[ $url == https://* ]];then
+        url=${url#https://}
+    fi
+    echo $url
+}
+
+git_clone() {
+    local url=$1
+    d=$(parse_url $url)
+    d=${GOPATH}/src/$d
+    echo "cd $d"
+    mkdir -p $d
+    ( cd $d; git clone $url; )
+}
+
+git_clone "$@"
