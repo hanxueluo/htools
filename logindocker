@@ -3,6 +3,8 @@
 ip=$1
 domain=$2
 
+RESTART=0
+
 valida_args() {
     local ip=$1
     local domain=$2
@@ -32,6 +34,14 @@ update_docker_json() {
     fi
     awk '1; !found && /insecure-registries/ { print "    \"'$domain'\","; found=1 }' $file > /tmp/docker_daemon_json
     mv /tmp/docker_daemon_json $file
+    RESTART=1
+}
+
+restart_docker() {
+    if which osascript 2>/dev/null >/dev/null;then
+        osascript -e 'quit app "Docker"'
+        open -a Docker
+    fi
 }
 
 valida_args "$ip" "$domain"
@@ -40,3 +50,7 @@ update_docker_json "$domain"
 
 set -x
 docker login "$domain" -uadmin -pPwd123456
+#if [ "$?" != 0 ];then
+if [ "$RESTART" = 1 ];then
+    restart_docker
+fi
