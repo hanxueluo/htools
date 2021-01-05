@@ -28,7 +28,7 @@ def get_content(proto, infos, peer, me, kvs):
     s += "  Head:\n"
     for k, v in kvs.items():
         s += "    %s: %s\n" % (k, v)
-        if k.lower() == "HTTPSTATUS":
+        if k.upper() == "HTTPSTATUS":
             status = int(v) if v.isdigit() else 400
 
     l = kvs.get("L", "")
