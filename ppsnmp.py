@@ -1,12 +1,28 @@
 #!/usr/bin/env python
-# -e #error-only
-# -i #increase-only
-# -o #run-once
-# -p xx,yy,zz #select-protocols
 
 from __future__ import print_function
 import time
 import os
+import argparse
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('-b', type=int, help='batch-mode interval')
+parser.add_argument('-e', action='store_true', help='show error count only')
+parser.add_argument('-i', action='store_true', help='show increased count only')
+parser.add_argument('-p', action='store', help='show specified protocols only')
+
+args = parser.parse_args()
+
+print(args)
+batch_interval = args.b if args.b else 0
+increase_only = args.i
+error_only = args.e
+protocols = [] if not args.p else args.p.split(",")
+if protocols:
+    if "udp" in protocols:
+        protocols.append("udplite")
+    if "icmp" in protocols:
+        protocols.append("icmpmsg")
 
 def read_snmp(fn):
     d = ""
@@ -17,7 +33,6 @@ def read_snmp(fn):
 def write_snmp(fn, d):
     with open(fn, "w") as f:
         f.write(d)
-
 
 def extract_data(d):
     groups = {}
@@ -53,10 +68,6 @@ def is_error(v):
         "Unreach" in v or "TimeExcds" in v
 
 def print_d(d):
-    increase_only = False
-    error_only = True
-    protocols = []
-
     s = "==============\n"
     for p,l in sorted(d.iteritems()):
         if protocols and p not in protocols:
@@ -72,11 +83,11 @@ def print_d(d):
             s += p + ":\n" + s2
     print(s.strip())
 
-def main_loop():
+def main_loop(interval=1):
     o = None
     n = None
-    while 1:
-        time.sleep(1)
+    while True:
+        time.sleep(interval)
         n = extract_data(read_snmp("/proc/net/snmp"))
         if o is not None:
             d = delta_data(o, n)
@@ -98,5 +109,7 @@ def print_once():
     d = delta_data(o, n)
     print_d(d)
 
-#print_once()
-main_loop()
+if batch_interval:
+    main_loop(batch_interval)
+else:
+    print_once()
