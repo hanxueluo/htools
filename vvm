@@ -7,6 +7,7 @@ if [ "$op" != list ] && test -z "$2";then
     cat <<EOF
 Usage:
  $0 edit NAME   # add or create
+ $0 del  NAME   # del
  $0 start NAME
  $0 stop NAME
  $0 conn NAME
@@ -241,5 +242,11 @@ EOF
     if ! test -s "$file2";then
         rm -f $file2
     fi
+elif [ "$op" = del ];then
+    file2=/etc/vvm/vvm/$file.conf
+    ./$0 stop $file && echo "$file stopped"
+    if test -f "$file2";then
+        rm -f $file2
+        echo "$file deleted"
+    fi
 fi
-
