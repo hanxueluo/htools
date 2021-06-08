@@ -4,7 +4,15 @@ op=$1
 file=$2
 
 if [ "$op" != list ] && test -z "$2";then
-    echo too few arguments
+    cat <<EOF
+Usage:
+ $0 edit NAME   # add or create
+ $0 start NAME
+ $0 stop NAME
+ $0 conn NAME
+ $0 list [NAME]
+ $0 restart NAME
+EOF
     exit 
 fi
 
@@ -17,6 +25,18 @@ ns_run() {
 
 ns_exists() {
     ip netns | grep -q "^$NS\b"
+}
+
+ns_list_vvm() {
+    (
+        source /etc/vvm/vvm/$1
+        echo $NAME
+        echo $GW
+        echo .
+        echo $MAC
+        echo $IP
+    ) | tr '\n' '\t'
+    printf "\n"
 }
 
 ns_list_net() {
@@ -55,6 +75,14 @@ net_eth_setup() {
     ns_run ip link set eth0 up
     ns_run ip link set lo up
     test -z "$GW" || ns_run ip route add default via $GW
+
+    # reset ip and route if ROUTE
+    if test -n "$ROUTE";then
+        ns_run ip addr flush dev eth0
+        ns_run ip addr add dev eth0 ${IP%/*}
+        ns_run ip route add 169.254.1.1 dev eth0 scope link
+        ns_run ip route add default via 169.254.1.1
+    fi
 
     if [ "$host_side_name" != "" ];then
         ip link set $host_side_name address $(echo $MAC | sed 's/^..:/fe:/')
@@ -99,6 +127,10 @@ if [ "$op" = start ];then
     fi
     if test -n "$LIN_BR";then
         ip link set dev $port master $LIN_BR
+    fi
+    if test -n "$ROUTE";then
+        ip route add ${IP%/*} dev $port
+        sysctl -w net.ipv4.conf.$port.proxy_arp=1 >/dev/null
     fi
 
 elif [ "$op" = reovn ];then
@@ -152,6 +184,13 @@ elif [ "$op" = restart ];then
     echo "started"
 
 elif [ "$op" = list ];then
+    echo "== conf   =="
+    for file in $(ls /etc/vvm/vvm/)
+    do
+        ns_list_vvm $file
+    done
+
+    echo "== active =="
     for ns in $(ip netns | sort |grep ^vvm- |awk '{print $1}')
     do
         NS=$ns
@@ -193,6 +232,8 @@ IPVLAN=
 OVS_BR=
 LIN_BR=
 OVN_BR=
+ROUTE=1
+ROUTE=
 ARG=
 EOF
     fi
