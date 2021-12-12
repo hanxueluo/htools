@@ -126,6 +126,9 @@ _k_setup_crictl_alias() {
 
     if test -n "$PYFILE";then
         alias cri="$PYFILE"
+        alias crc="$PYFILE container"
+        alias crp="$PYFILE pod"
+        alias crm="$PYFILE image"
     fi
 }
 
