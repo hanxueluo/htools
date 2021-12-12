@@ -27,10 +27,10 @@ def find_in_cache(lines, kind, resource):
     return res
 
 def is_list_action(a):
-    return a in ["ps", "pods"]
+    return a in ["ps", "pods", "images"]
 
 def get_list_action(kind):
-    return "ps"
+    return {"image":"images","container":"ps","pod":"pods"}.get(kind, "ls")
 
 class DockerExtraCommand(object):
     def __init__(self, kind, action, resource, option, cache):
@@ -415,7 +415,8 @@ class DockerExecutor(object):
     def raw_execute(self, kind, action, resource, option):
         opt = CmdOption(option.raw)
         if is_list_action(action) and kind != "container":
-            action = "ls"
+            pass
+            #action = "ls"
 
         if kind == "image":
             if resource:
@@ -449,7 +450,8 @@ class DockerExecutor(object):
             kind = "container"
             opt = CmdOption([])
 
-        if kind == "container": kind = ""
+        #if kind == "container": kind = "" # docker only
+
         args = " ".join([
                 "crictl",
                 kind,
@@ -475,6 +477,7 @@ class DockerExecutor(object):
             dec = DockerExtraCommand(kind, action, resource, opt, self.cache)
             yes, code, out, err = dec.run()
             if not yes:
+                args.pop(1) # remove kind before execute, crictl only
                 code, out, err = Utility.execute(args, use_stdout)
         except KeyboardInterrupt:
             code = 1
@@ -627,20 +630,27 @@ class DockerExecutor(object):
 
 
 def main(argv):
-    action = "pods"
     kind = "container"
+    action = get_list_action(kind)
     resource = ""
 
     argv = argv[:]
     argv.reverse()
     if argv and argv[-1][0] != "-":
-        if argv[-1] in ["image", "container", "i"]:
+        if argv[-1] in ["image", "container", "pod"]:
             kind = argv.pop()
-            if kind == "i": kind = "image"
+            action = get_list_action(kind)
 
     if argv and argv[-1][0] != "-":
         if argv[-1].isalpha():
             action = argv.pop()
+        if action in ["images", "imagefsinfo", "inspecti", "pull", "rmi"]:
+            kind = "image"
+        elif action in ["pods", "inspectp", "runp", "stopp", "rmp", "port-forward"]:
+            kind = "pod"
+        else:
+            pass # default kind = container
+
     if argv and argv[-1][0] != "-":
         resource = argv.pop()
     argv.reverse()
