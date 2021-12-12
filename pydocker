@@ -496,6 +496,8 @@ class DockerExecutor(object):
         if err:
             Utility.print_to_stderr("cmd %s: error:  %s" % (args, err))
 
+        if isinstance(out, bytes):
+            out = out.decode("utf-8")
         lines = out.splitlines()
         return lines
 
