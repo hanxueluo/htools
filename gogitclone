@@ -7,6 +7,9 @@ parse_url() {
     if [[ $url == git@* ]];then
         url=${url#git@}
         url=$(echo $url | sed 's/:/\//')
+    elif [[ $url == ssh://git@* ]];then
+        url=${url#ssh://git@}
+        url=$(echo $url | sed 's/:/\//')
     elif [[ $url == https://* ]];then
         url=${url#https://}
     fi
