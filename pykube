@@ -151,11 +151,12 @@ class KubeOption(object):
         return KubeOption(self.raw)
 
 class Executor(object):
-    def __init__(self, action, kind, resource="", others=""):
+    def __init__(self, action, kind, resource="", others="", resource_list=[]):
         super(Executor, self).__init__()
         self.action = action
         self.kind = kind
         self.resource = resource
+        self.resource_list = resource_list
         self.others = others.split() if others is str else others
 
         self.kind, self.resource = self._reset_kind_resource(self.kind, self.resource)
@@ -243,6 +244,11 @@ class Executor(object):
         lines = lines2
         return lines
 
+    def execute_list(self):
+        if len(self.resource_list):
+            self.resource = self.resource_list.pop()
+            self.execute()
+
     def execute(self):
         _pattern = ""
         action = self.action
@@ -297,6 +303,7 @@ class Executor(object):
 
             if not _pattern or option.is_list():
                 self.output_result(lines, kind, op.is_list() and resource == "")
+                self.execute_list()
                 return
         elif hasfilter:
             lines = self.kube_execute(namespace, "get", kind, resource, KubeOption(["-o", "wide"]))
@@ -323,9 +330,12 @@ class Executor(object):
                     print_to_stderr("Aborted.")
                     return
 
+
         for namespace, ress in resources.iteritems():
             lines = self.kube_execute(namespace, action, kind, " ".join(ress), option)
             print("\n".join(lines))
+
+        self.execute_list()
 
     def format_namespace(self, lines, kind, namespace):
         if namespace:
@@ -470,6 +480,8 @@ def main(argv):
     action = "get"
     kind = ""
     resource = "."
+    resource_list = []
+    others = []
 
     argv = argv[:]
     argv.reverse()
@@ -479,8 +491,17 @@ def main(argv):
         kind = argv.pop()
     if argv and argv[-1][0] != "-":
         resource = argv.pop()
+
     argv.reverse()
-    Executor(action, kind, resource, argv).execute()
+    for ar in argv:
+        if ar.isdigit():
+            resource_list.append(ar)
+        else:
+            # FIXME: if the options container digit, such as `klp 1 2 -n 10`, the digit will
+            # be append into the resource_list, that will cause unexpected error.
+            others.append(ar)
+    others = others + argv[len(resource_list)+len(others):]
+    Executor(action, kind, resource, others=others, resource_list=resource_list).execute()
 
 
 main(sys.argv[1:])
