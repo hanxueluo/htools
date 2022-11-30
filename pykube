@@ -7,7 +7,7 @@
 # kpr 1 [KEY] [N]:VALUE  # patch N-th match KEY; N is first if ommit;
 # kp could work for all kind
 
-from __future__ import print_function
+
 import os
 import subprocess
 import sys
@@ -219,6 +219,10 @@ class Executor(object):
         if err:
             print_to_stderr("cmd %s: error:  %s" % (args, err))
 
+        # compatible 2&3
+        if type(out) is bytes:
+            out = out.decode()
+
         lines = out.splitlines()
         if code == 0 and out and action == "get" and kind == "node" and option.is_list():
             lines = self._patch_node_ip(lines)
@@ -312,10 +316,10 @@ class Executor(object):
             action = "get"
 
         if action in ["delete", "edit"]:
-            ress = resources.values()
+            ress = list(resources.values())
             if len(ress) > 1 or (len(ress) == 1 and len(ress[0]) > 1):
                 res_str = ""
-                for namespace, ress in resources.iteritems():
+                for namespace, ress in resources.items():
                     res_str += "    " + namespace + "/\n        "
                     res_str += "\n        ".join(ress) + "\n"
 
@@ -323,7 +327,7 @@ class Executor(object):
                     print_to_stderr("Aborted.")
                     return
 
-        for namespace, ress in resources.iteritems():
+        for namespace, ress in resources.items():
             lines = self.kube_execute(namespace, action, kind, " ".join(ress), option)
             print("\n".join(lines))
 
@@ -393,7 +397,7 @@ class Executor(object):
     def confirm_before_do(self, message):
         print_to_stderr(message, False)
         try:
-            r = raw_input()
+            r = input()
         except:
             r = "n"
         return r.strip().lower() in ["y", "yes"]
