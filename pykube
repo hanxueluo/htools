@@ -198,12 +198,12 @@ class Executor(object):
         elif action == "exec":
             kind = ""
             option_prefix = ["-it"]
-            if not option.raw:
-                option.raw = ["bash"]
             c = option.get_arg("-c")
             if c:
                 option = option.del_arg("-c")
                 option_prefix += ["-c", c]
+            if not option.raw:
+                option.raw = ["bash"]
             if option_prefix:
                 option.raw = option_prefix + ["--"] + option.raw
         elif action == "get":
