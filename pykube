@@ -248,7 +248,7 @@ class Executor(object):
         if not lines:
             return lines
 
-        cmd = "kubectl get node -o=custom-columns=NAME:.metadata.name,ADDRESS:.status.addresses[0].address,podCIDR:.spec.podCIDR"
+        cmd = "kubectl get node -o=custom-columns=NAME:.metadata.name,ADDRESS:.status.addresses[0].address,podCIDRs:.spec.podCIDRs"
         out = Utility.execute(cmd)[1]
         ips = {}
         for l in out.splitlines():
