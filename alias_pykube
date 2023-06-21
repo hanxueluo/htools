@@ -20,6 +20,32 @@ _k_recreate_file() {
     kubectl create -f "$@"
 }
 
+declare -A ACTION_DICT
+ACTION_DICT[g]=get
+ACTION_DICT[d]=describe
+ACTION_DICT[e]=edit
+ACTION_DICT[y]=yaml
+ACTION_DICT[dd]=delete
+_k_kube_alias() {
+    local r=$1
+    local resource=$2
+    local actions=$3
+
+    if [ "$r" = "#" ];then
+        continue
+    fi
+    for a in $(echo $actions| tr ',' ' ')
+    do
+        local action=${ACTION_DICT[$a]}
+        test -n "$action" || continue
+        eval "alias k$a$r=\"_k_do $action $resource"\"
+    done
+}
+
+kubealias() {
+    _k_kube_alias "$@" g,d,y,e,dd
+}
+
 _k_setup_kubectl_alias() {
     PYKUBE=
     for pykube in $ /root/hroot/htools/pykube ~/work/htools/pykube ~/htools/pykube
@@ -35,23 +61,9 @@ _k_setup_kubectl_alias() {
     fi
 
 
-    declare -A ACTION_DICT
-    ACTION_DICT[g]=get
-    ACTION_DICT[d]=describe
-    ACTION_DICT[e]=edit
-    ACTION_DICT[y]=yaml
-    ACTION_DICT[dd]=delete
     while read r resource actions
     do
-        if [ "$r" = "#" ];then
-            continue
-        fi
-        for a in $(echo $actions| tr ',' ' ')
-        do
-            local action=${ACTION_DICT[$a]}
-            test -n "$action" || continue
-            eval "alias k$a$r=\"_k_do $action $resource"\"
-        done
+        _k_kube_alias $r $resource $actions
     done < <(
     cat <<EOF
 p pod g,d,y,e,dd
