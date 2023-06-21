@@ -24,6 +24,9 @@ spec:
 
 "spec":{"template":{"spec":{"containers":[{"image":"net.caicloudprivatetest.com/release/nginx:1.15.5-alpine-4","name":"c0",}],}}}
 kubectl -n kube-system patch deployment nginx --patch "$(cat a.yaml)"
+
+# specify columns get
+kubectl get node --no-headers -o=custom-columns=NAME:.metadata.name,ADDRESS:.status.addresses[0].address"
 """
 
 tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
@@ -70,6 +73,12 @@ class Utility:
         #else:
         #    in_ = ' < %s ' % input_ if input_ else ''
         #    logging.debug('Successful to execute cmd: %s %s:%s', cmd, in_, stdout.strip())
+
+        # compatible 2&3
+        if type(stdout) is bytes:
+            stdout = stdout.decode()
+        if type(stderr) is bytes:
+            stderr = stderr.decode()
         return (p.returncode, stdout, stderr)
 
 
@@ -228,9 +237,6 @@ class Executor(object):
         if err:
             print_to_stderr("cmd %s: error:  %s" % (args, err))
 
-        # compatible 2&3
-        if type(out) is bytes:
-            out = out.decode()
 
         lines = out.splitlines()
         if code == 0 and out and action == "get" and kind == "node" and option.is_list():
