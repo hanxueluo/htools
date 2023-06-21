@@ -239,12 +239,28 @@ class Executor(object):
 
 
         lines = out.splitlines()
-        if code == 0 and out and action == "get" and kind == "node" and option.is_list():
-            lines = self._patch_node_ip(lines)
+        if code == 0 and out and action == "get" and option.is_list():
+            if kind == "node":
+                lines = self._fix_node_print_append_podcidr(lines)
+            elif kind == "pod":
+                if option.has("-o", "wide"):
+                    lines = self._fix_pod_print_drop_last_two_columns(lines)
 
         return lines
 
-    def _patch_node_ip(self, lines):
+    def _fix_pod_print_drop_last_two_columns(self, lines):
+        num = 0
+        lines2 = []
+        for l in lines:
+            if num == 0:
+                lr = l.rsplit(maxsplit=4) # hard code for first line
+            else:
+                lr = l.rsplit(maxsplit=2)
+            num += 1
+            lines2.append(lr[0])
+        return lines2
+
+    def _fix_node_print_append_podcidr(self, lines):
         if not lines:
             return lines
 
