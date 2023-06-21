@@ -57,6 +57,7 @@ _k_setup_kubectl_alias() {
 p pod g,d,y,e,dd
 s svc g,d,y,e,dd
 d deployment g,d,y,e,dd
+j job g,d,y,e,dd
 # i ingress g,d,y,e,dd
 i ingresses.v1.networking.k8s.io g,d,y,e,dd
 r release g,d,y,e,dd
@@ -68,6 +69,7 @@ na net-attach-def g,d,y,e,dd
 nw net g,d,y,e,dd
 vwc validatingwebhookconfiguration g,d,y,e,dd
 mwc mutatingwebhookconfiguration g,d,y,e,dd
+eps endpointslice g,d,y,_,_
 ip ipresource g,d,y,e,dd
 EOF
 )
