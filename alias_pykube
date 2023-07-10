@@ -32,7 +32,7 @@ _k_kube_alias() {
     local actions=$3
 
     if [ "$r" = "#" ];then
-        continue
+        return
     fi
     for a in $(echo $actions| tr ',' ' ')
     do
