@@ -128,6 +128,22 @@ _k_setup_docker_alias() {
     fi
 }
 
+_k_setup_finch_alias() {
+    local PYDOCKER=
+    for file in /root/hroot/htools/pydocker ~/work/htools/pydocker ~/htools/pydocker
+    do
+        if test -e "$file";then
+            PYDOCKER=$file
+            break
+        fi
+    done
+
+    if test -n "$PYDOCKER";then
+        alias fic="CONTAINERCLI=finch $PYDOCKER container"
+        alias fii="CONTAINERCLI=finch $PYDOCKER image"
+    fi
+}
+
 _k_setup_crictl_alias() {
     local PYFILE=
     for file in /root/hroot/htools/pycrictl ~/work/htools/pycrictl ~/htools/pycrictl
@@ -146,7 +162,7 @@ _k_setup_crictl_alias() {
     fi
 }
 
-
 _k_setup_kubectl_alias
 _k_setup_docker_alias
+_k_setup_finch_alias
 _k_setup_crictl_alias
