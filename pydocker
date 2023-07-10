@@ -109,7 +109,7 @@ class DockerExtraCommand(object):
         ip = ""
         nets = js.get("NetworkSettings", {}).get("Networks", {})
         if isinstance(nets, dict):
-            for v in nets.itervalues():
+            for v in list(nets.values()):
                 ip = v.get("IPAddress", "")
                 if ip:
                     break
@@ -193,7 +193,7 @@ class DockerExtraCommand(object):
                 columns[i] = (c, c.upper())
 
         res_list.append([ n for _, n in columns ])
-        for d in data.itervalues():
+        for d in list(data.values()):
             r = []
             for k, _ in columns:
                 r.append(str(d.get(k, "-")))
@@ -217,11 +217,11 @@ class DockerExtraCommand(object):
 
     def _complete_iface(self, data):
         nslist = set()
-        for v in data.itervalues():
+        for v in list(data.values()):
             nslist.add(v.get("netns", "-"))
 
         netdata = self._get_net_data(nslist)
-        for v in data.itervalues():
+        for v in list(data.values()):
             iface = netdata.get(v.get("netns", "-"), "-")
             v["vethpeer"] = iface
 
@@ -237,7 +237,7 @@ class DockerExtraCommand(object):
                 return 1, "", "%s doesn't exist" % self.resource
         data2 = data.copy()
         if action != "la":
-            for k, v in data.iteritems():
+            for k, v in list(data.items()):
                 if v["pid"] == 0:
                     del data2[k]
 
@@ -619,7 +619,7 @@ class DockerExecutor(object):
     def confirm_before_do(self, message):
         Utility.print_to_stderr(message, False)
         try:
-            r = raw_input()
+            r = input()
         except:
             r = "n"
         return r.strip().lower() in ["y", "yes"]
