@@ -88,7 +88,7 @@ class DockerExtraCommand(object):
 
 
         # get pid and net ns
-        pid = int(js[u"State"][u"Pid"])
+        pid = int(js["State"]["Pid"])
         if pid == 0:
             pass
         try:
@@ -98,44 +98,44 @@ class DockerExtraCommand(object):
             netns = "-"
 
         # get started time
-        started = js[u"State"][u"StartedAt"]
+        started = js["State"]["StartedAt"]
 
         # get path
-        path = js[u"Path"]
-        if path == u"/pause":
+        path = js["Path"]
+        if path == "/pause":
             return d
 
         # get IP
-        ip = u""
-        nets = js.get(u"NetworkSettings", {}).get(u"Networks", {})
+        ip = ""
+        nets = js.get("NetworkSettings", {}).get("Networks", {})
         if isinstance(nets, dict):
             for v in nets.itervalues():
-                ip = v.get(u"IPAddress", u"")
+                ip = v.get("IPAddress", "")
                 if ip:
                     break
 
         if not ip:
-            ips = [ s for s in js[u"Config"][u"Env"] if s.startswith(u"POD_IP=") ]
+            ips = [ s for s in js["Config"]["Env"] if s.startswith("POD_IP=") ]
             if ips:
                 ip = ips[0].split("=",1)[1]
 
         if not ip:
-            ip = u"-"
+            ip = "-"
 
         # get container name
-        cname = js[u"Name"].lstrip(u"/")
+        cname = js["Name"].lstrip("/")
 
-        labes = js[u"Config"][u"Labels"]
-        cname2 = labes.get(u"io.kubernetes.container.name", u"")
-        if cname2 in [u"POD", u"c1", u"c0", u"c2"]:
-            cname2 = u"-"
-        if cname2 != u"":
+        labes = js["Config"]["Labels"]
+        cname2 = labes.get("io.kubernetes.container.name", "")
+        if cname2 in ["POD", "c1", "c0", "c2"]:
+            cname2 = "-"
+        if cname2 != "":
             cname = cname2
 
         # get pod name
-        pname = labes.get(u"io.kubernetes.pod.name", u"-")
+        pname = labes.get("io.kubernetes.pod.name", "-")
 
-        id_ = js[u"ID"][:12]
+        id_ = js["ID"][:12]
         d = {
                 "id": id_,
                 "driver": pid,
@@ -238,7 +238,7 @@ class DockerExtraCommand(object):
         data2 = data.copy()
         if action != "la":
             for k, v in data.iteritems():
-                if v[u"pid"] == 0:
+                if v["pid"] == 0:
                     del data2[k]
 
         out = self._format_result(data2, columns)
