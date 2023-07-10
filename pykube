@@ -7,7 +7,7 @@
 # kpr 1 [KEY] [N]:VALUE  # patch N-th match KEY; N is first if ommit;
 # kp could work for all kind
 
-
+from __future__ import print_function
 import os
 import subprocess
 import sys
@@ -253,9 +253,9 @@ class Executor(object):
         lines2 = []
         for l in lines:
             if num == 0:
-                lr = l.rsplit(maxsplit=4) # hard code for first line
+                lr = l.rsplit(None, 4) # hard code for first line
             else:
-                lr = l.rsplit(maxsplit=2)
+                lr = l.rsplit(None, 2)
             num += 1
             lines2.append(lr[0])
         return lines2
