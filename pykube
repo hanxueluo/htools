@@ -209,6 +209,14 @@ class Executor(object):
         elif action == "get":
             if kind == "pod" and not option.raw:
                 option = option.try_set_wide_for_pod(kind)
+        elif action in ["upload", "download"]:
+            replace_index = 0
+            if action == "upload":
+                replace_index = 1
+            option.raw[replace_index] = resource + ":" + option.raw[replace_index]
+            kind = ""
+            resource = ""
+            action = "cp"
         elif action == "update":
             code, out, err = Utility.execute(["kubectl", "get", namespace, kind, resource , "-ojson"], False)
             print(out)

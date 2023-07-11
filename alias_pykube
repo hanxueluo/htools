@@ -94,6 +94,8 @@ EOF
     ## pod
     alias klp="_k_do logs pod"
     alias kx="_k_do exec pod"
+    alias ku="_k_do upload pod"
+    alias ko="_k_do download pod"
 
     alias kfc="kubectl create -f"
     alias kfd="kubectl delete -f"
