@@ -164,6 +164,40 @@ _k_setup_crictl_alias() {
     fi
 }
 
+
+_k_config_ls() {
+    {
+    find ~/cloudinfo/vol/ -type f
+    find ~/cloudinfo/ali/kubeconfig/ -type f
+    find /etc/kubernetes/kubelet.conf -type f
+    } 2>/dev/null | cat -b | tee /tmp/tmp_kube_config_ls
+}
+
+kconfig() {
+    local file=$1
+    local action=$2
+    if [ "$file" = "" ];then
+        _k_config_ls
+        return
+    fi
+
+    #file2=$(cat /tmp/tmp_kube_config_ls |grep "^$file\b")
+    file2=$(cat /tmp/tmp_kube_config_ls |awk -v file=$file '$1==file {print $2}')
+    if [ "$file2" = "" ];then
+        echo "kubeconfig {$file} not found in /tmp/tmp_kube_config_ls"
+        return
+    fi
+    if [ "$action" = "cp" ];then
+        echo "kubeconfig: cp $file2 ~/.kube/config"
+        mkdir -p ~/.kube/
+        cp $file2 ~/.kube/config
+        export KUBECONFIG=
+    else
+        echo "kubeconfig: export KUBECONFIG=$file2"
+        export KUBECONFIG=$file2
+    fi
+}
+
 _k_setup_kubectl_alias
 _k_setup_docker_alias
 _k_setup_finch_alias
