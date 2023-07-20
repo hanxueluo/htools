@@ -96,17 +96,17 @@ class Utility:
 
 class Action(object):
     def __init__(self, name):
-        super(self, Action).__init__()
+        super().__init__()
         self.name = name
 
 class Kind(object):
     def __init__(self, name):
-        super(self, Kind).__init__()
+        super().__init__()
         self.name = name
 
 class Resource(object):
     def __init__(self, name):
-        super(self, Resource).__init__()
+        super().__init__()
         self.name = name
 
 class KubeOption(object):
