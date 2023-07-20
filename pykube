@@ -1,11 +1,23 @@
 #!/usr/bin/env python
+"""
+TODO:
+- LIST
+1. list # . do not do all if no match
+2. condition format:
+    - 1
+    - /pattern
+    - @pattern
+    - N/pattern
+    - N@pattern
+    - N=pattern
 
-# TODO LIST:
-# . do not do all if no match
+- Patch
+    # kpd 1 [KEY] # list release.spec.config "KEY", default KEY is "image"
+    # kpd 1 [KEY] [N]:VALUE  # patch N-th match KEY; N is first if ommit;
+    # kp could work for all kind
 
-# kpr 1 [KEY] # list release.spec.config "KEY", default KEY is "image"
-# kpr 1 [KEY] [N]:VALUE  # patch N-th match KEY; N is first if ommit;
-# kp could work for all kind
+"""
+
 
 from __future__ import print_function
 import os
