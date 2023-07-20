@@ -257,14 +257,11 @@ class Executor(object):
         return lines
 
     def _fix_pod_print_drop_last_two_columns(self, lines):
-        num = 0
         lines2 = []
+        if lines:
+            lines[0] = lines[0].replace("NOMINATED NODE", "NOMINATED-NODE").replace("READINESS GATES","READINESS-GATES")
         for l in lines:
-            if num == 0:
-                lr = l.rsplit(None, 4) # hard code for first line
-            else:
-                lr = l.rsplit(None, 2)
-            num += 1
+            lr = l.rsplit(None, 2)
             lines2.append(lr[0])
         return lines2
 
