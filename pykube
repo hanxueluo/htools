@@ -2,14 +2,8 @@
 """
 TODO:
 - LIST
-1. list # . do not do all if no match
-2. condition format:
-    - 1
-    - /pattern
-    - @pattern
-    - N/pattern
-    - N@pattern
-    - N=pattern
+1. simple yaml: drop useless field
+2. specify field: todo
 
 - Patch
     # kpd 1 [KEY] # list release.spec.config "KEY", default KEY is "image"
@@ -180,9 +174,17 @@ class Executor(object):
         self.action = action
         self.kind = kind
         self.resource = resource
+        self.content_pattern = ""
         self.others = others.split() if others is str else others
 
         self.kind, self.resource = self._reset_kind_resource(self.kind, self.resource)
+        rr = re.search(r"([\d.]+)([/@=].+)", self.resource)
+        if not rr:
+            rr = re.search(r"([/@=].+)([/@=].+)", self.resource)
+        if rr:
+            self.content_pattern = rr.group(2)
+            self.resource = rr.group(1)
+
 
     def _reset_kind_resource(self, kind, resource):
         # handle "pod/kube-proxy-pch4q" and "all pod/kube-proxy-pch4q"
@@ -195,8 +197,6 @@ class Executor(object):
             resource = ss[1]
         return kind, resource
 
-    def kube_get_image(self, namespace, action, kind, resource, option):
-        pass
     def kube_execute(self, namespace, action, kind, resource, option):
         if namespace == "":
             namespace = "--all-namespaces"
@@ -347,7 +347,8 @@ class Executor(object):
                 lines = self.format_namespace(lines, kind, namespace)
             lines = self.format_by_pattern(lines, _pattern)
 
-            if not _pattern or option.is_list():
+            if not _pattern or option.is_list(): # output directly if it happens to get( or get yaml )
+                lines = self.format_by_pattern(lines, self.content_pattern)
                 self.output_result(lines, kind, op.is_list() and resource == "")
                 return
         elif hasfilter:
@@ -377,6 +378,7 @@ class Executor(object):
 
         for namespace, ress in resources.items():
             lines = self.kube_execute(namespace, action, kind, " ".join(ress), option)
+            lines = self.format_by_pattern(lines, self.content_pattern)
             print("\n".join(lines))
 
     def format_namespace(self, lines, kind, namespace):
