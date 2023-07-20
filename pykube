@@ -296,7 +296,7 @@ class Executor(object):
         return lines
 
     def execute(self):
-        _pattern = ""
+        resource_pattern = ""
         action = self.action
         kind = self.kind
         resource = ""
@@ -322,7 +322,7 @@ class Executor(object):
                 namespace = {".ks": "kube-system", ".d": "default"}.get(namespace, namespace)
             hasfilter = True
         elif self.resource.startswith("/") or self.resource.startswith("@"):
-            _pattern = self.resource
+            resource_pattern = self.resource
             namespace = ""
             hasfilter = True
         else:
@@ -338,23 +338,23 @@ class Executor(object):
         lines = None
         if action == "get":
             op = option
-            if _pattern:
+            if resource_pattern:
                 op = op.del_arg("-w")
                 op = op.reset_arg("-o", "wide")
 
             lines = self.kube_execute(namespace, "get", kind, resource, op)
             if op.is_list():
                 lines = self.format_namespace(lines, kind, namespace)
-            lines = self.format_by_pattern(lines, _pattern)
+            lines = self.format_by_pattern(lines, resource_pattern)
 
-            if not _pattern or option.is_list(): # output directly if it happens to get( or get yaml )
+            if not resource_pattern or option.is_list(): # output directly if it happens to get( or get yaml )
                 lines = self.format_by_pattern(lines, self.content_pattern)
                 self.output_result(lines, kind, op.is_list() and resource == "")
                 return
         elif hasfilter:
             lines = self.kube_execute(namespace, "get", kind, resource, KubeOption(["-o", "wide"]))
             lines = self.format_namespace(lines, kind, namespace)
-            lines = self.format_by_pattern(lines, _pattern)
+            lines = self.format_by_pattern(lines, resource_pattern)
 
         # 3. second call
         resources = { namespace: [resource] }
