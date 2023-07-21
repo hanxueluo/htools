@@ -1,0 +1,173 @@
+#!/bin/bash
+
+op=$1
+file=$2
+
+if [ "$op" != list ] && test -z "$2";then
+    echo too few arguments
+    exit 
+fi
+
+
+NS=
+
+ns_run() {
+    ip netns exec $NS "$@"
+}
+
+ns_exists() {
+    ip netns | grep -q "^$NS\b"
+}
+
+ns_list_net() {
+    printf "%s\t" ${NS#*-}
+    {
+        ip netns exec $NS ip route show default | awk '{print $3}'
+        ip netns exec $NS ip addr show eth0 | awk '{if ($1 == "inet" || $1 == "link/ether") {print $2}}'
+    } | tr '\n' '\t'
+    printf "\n"
+}
+
+if [ "$op" = start ];then
+    mkdir -p /etc/vvm/vvm/
+    file2=/etc/vvm/vvm/$file.conf
+    if test -r $file2;then
+        file=$file2
+    fi
+    source $file
+    NS=vvm-$NAME
+
+    if test -z "$NAME" || ns_exists;then
+        echo $NS is invalid or alreadly exists
+        exit 1
+    fi
+    ip netns add $NS
+    ip link add veth-$NAME type veth peer name peer-$NAME
+    ip link set peer-$NAME netns $NS
+
+    ns_run ip link set peer-$NAME name eth0
+    ns_run ip link set eth0 address $MAC
+    if [ "$IP" = dhcp ];then
+        IP=
+        echo ns_run ip addr add dev eth0 $IP
+    else
+        ns_run ip addr add dev eth0 $IP
+    fi
+    ns_run ip link set eth0 up
+    ns_run ip link set lo up
+    test -z "$GW" || ns_run ip route add default via $GW
+    ip link set veth-$NAME address $(echo $MAC | sed 's/^..:/fe:/')
+    ip link set veth-$NAME up
+
+
+    port=veth-$NAME
+    if test -n "$OVS_BR";then
+        ovs-vsctl add-port $OVS_BR $port -- set interface $port external_ids:iface-id=$OVN_BR-$port
+    fi
+    if test -n "$OVN_BR";then
+        ovn-nbctl lsp-add $OVN_BR $OVN_BR-$port -- lsp-set-addresses $OVN_BR-$port "$MAC $IP" -- lsp-set-port-security $OVN_BR-$port "$MAC $IP"
+    fi
+    if test -n "$LIN_BR";then
+        ip link set dev $port master $LIN_BR
+    fi
+
+elif [ "$op" = reovn ];then
+    mkdir -p /etc/vvm/vvm/
+    file2=/etc/vvm/vvm/$file.conf
+    if test -r $file2;then
+        file=$file2
+    fi
+    source $file
+    NS=vvm-$NAME
+
+    if ! ns_exists;then
+        echo $NAME does not exist
+        exit 1
+    fi
+
+    port=veth-$NAME
+    if test -n "$OVN_BR";then
+        if [ "$IP" = dhcp ];then
+            IP=
+        fi
+        ovn-nbctl --if-exists lsp-del $OVN_BR-$port
+        ovn-nbctl lsp-add $OVN_BR $OVN_BR-$port -- lsp-set-addresses $OVN_BR-$port "$MAC $IP" -- lsp-set-port-security $OVN_BR-$port "$MAC $IP"
+    fi
+
+elif [ "$op" = stop ];then
+    NAME=$file
+    NS=vvm-$NAME
+    if ! ns_exists;then
+        echo $NAME does not exist
+        exit 1
+    fi
+    ip link del veth-$NAME
+    ip netns del $NS
+
+    port=veth-$NAME
+    if which ovs-vsctl >/dev/null 2>/dev/null;then
+        iface_id=$(ovs-vsctl --if-exists get int $port external_ids:iface-id | tr -d '"')
+        if [ "$iface_id" ];then
+            ovn-nbctl --if-exists lsp-del $iface_id
+        fi
+
+        ovs-vsctl --if-exists del-port $port
+    fi
+
+    ip link set dev $port nomaster 2>/dev/null
+
+elif [ "$op" = restart ];then
+    $0 stop $file
+    echo "stopped"
+    $0 start $file
+    echo "started"
+
+elif [ "$op" = list ];then
+    for ns in $(ip netns | sort |grep ^vvm- |awk '{print $1}')
+    do
+        NS=$ns
+        ns_list_net
+    done
+
+elif [ "$op" = conn ];then
+    NAME=$file
+    NS=vvm-$NAME
+    if ! ns_exists;then
+        echo $NAME does not exist
+        exit 1
+    fi
+    shift
+    shift
+    if test -n "$1";then
+        exec ip netns exec $NS "$@"
+    else
+        rcfile=/tmp/vvm-rc-$NAME
+        cat > $rcfile <<EOF
+source /root/.bashrc
+export PS1="vvm@$NAME.\h:\w\$ "
+rm -f $rcfile
+EOF
+        cd /root/
+        exec ip netns exec $NS bash --rcfile $rcfile
+    fi
+elif [ "$op" = edit ];then
+    mkdir -p /etc/vvm/vvm/
+    file2=/etc/vvm/vvm/$file.conf
+    if ! test -f $file2;then
+        cat 1>$file2 <<EOF
+NAME=$file
+MAC=0c:dd:00:00:00:00
+IP=dhcp
+IP=172.20.70.2/24
+GW=172.20.70.1
+OVS_BR=
+OVN_BR=
+ARG=
+EOF
+    fi
+    vim $file2
+    if ! test -s "$file2";then
+        rm -f $file2
+    fi
+fi
+
