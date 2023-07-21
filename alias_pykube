@@ -191,7 +191,7 @@ kconfig() {
         echo "kubeconfig: cp $file2 ~/.kube/config"
         mkdir -p ~/.kube/
         cp $file2 ~/.kube/config
-        export KUBECONFIG=
+        unset KUBECONFIG
     else
         echo "kubeconfig: export KUBECONFIG=$file2"
         export KUBECONFIG=$file2
