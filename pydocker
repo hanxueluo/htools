@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # TODO LIST:
 # support multiple do
 
@@ -6,6 +6,7 @@
 # list pid and nx for "doc ls -d"
 
 # doi repo // /etc/hosts ... # pydocker: AIALS:REPO
+
 
 from __future__ import print_function
 import os
@@ -361,8 +362,8 @@ class DockerExecutor(object):
                 "test": "test.caicloudprivatetest.com/release/",
                 "cg": "cargo.caicloudprivatetest.com/caicloud/",
                 "ra": "regression-a.cargo.io/release/",
-                "rb": "regression-b.cargo.io/release/",
-                "rc": "regression-c.cargo.io/release/",
+                "sh": "helm-vci-sh-cn-shanghai.cr.volces.com/vci-sh/",
+                "bj": "vci-cn-beijing.cr.volces.com/vci-rd/",
                 "n": "net.cargo.io",
                 "c": "cargo.caicloudprivatetest.com",
                 "i": "cargo-infra.caicloud.xyz",
