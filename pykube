@@ -534,8 +534,15 @@ def main(argv):
     if argv and argv[-1][0] != "-":
         resource = argv.pop()
     argv.reverse()
+
+    if action == "watchdiff":
+        import kwatchdiff
+        kwatchdiff.run()
+        sys.exit(0)
+
     Executor(action, kind, resource, argv).execute()
 
 
-main(sys.argv[1:])
+if __name__ == "__main__":
+    main(sys.argv[1:])
 

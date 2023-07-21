@@ -4,6 +4,11 @@
 _k_do() {
     $PYKUBE "$@"
 }
+
+_k_watch_and_diff() {
+    _k_do yaml "$@" -w | _k_do watchdiff
+}
+
 _k_scale() {
     local kind="$1"
     local object="$2"
@@ -40,6 +45,7 @@ _k_kube_alias() {
         test -n "$action" || continue
         eval "alias k$a$r=\"_k_do $action $resource"\"
     done
+    eval "alias km$r=\"_k_watch_and_diff $resource"\"
 }
 
 kubealias() {
@@ -90,6 +96,7 @@ EOF
     alias ke="_k_do edit"
     alias ky="_k_do yaml"
     alias kdd-="_k_do delete"
+    alias km="_k_watch_and_diff"
 
     ## pod
     alias klp="_k_do logs pod"
