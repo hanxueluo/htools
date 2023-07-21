@@ -13,12 +13,10 @@ IDENTIFY_LINE=None
 
 items = []
 
-def diff_last_two(l):
-    if len(l) < 2:
+def diff_objs(a, b):
+    if a is None or b is None:
         return
-    i = len(l) - 2
-    j = len(l) - 1
-    for line in l[i].diff(l[j]):
+    for line in a.diff(b):
         sys.stdout.write(line.rstrip("\n") + "\n")
         sys.stdout.flush()
 
@@ -42,11 +40,11 @@ class Obj(object):
         return difflib.unified_diff(self.lines, other.lines, fromfile=self.get_id(), tofile=other.get_id())
 
 class Watcher(object):
-    def __init__(self, handle_diff=diff_last_two):
+    def __init__(self, handle_diff=diff_objs):
         super(Watcher, self).__init__()
         self.objs = {}
         self.uncommited_obj = Obj()
-        self.handle_diff = diff_last_two
+        self.handle_diff = handle_diff
         self.lock = threading.Lock()
         self.last_time = datetime.datetime.now()
         self.start_commit_timer()
@@ -72,10 +70,11 @@ class Watcher(object):
         if not self.uncommited_obj.lines:
             return
         if self.uncommited_obj.uid:
-            v = self.objs.setdefault(self.uncommited_obj.uid, [])
-            v.append(self.uncommited_obj)
-            v[-1].idx = len(v) - 1
-            self.handle_diff(v)
+            v = self.objs.setdefault(self.uncommited_obj.uid, [0, [None, None]])
+            self.uncommited_obj.idx = v[0]
+            v[0] = v[0] + 1
+            v[1][self.uncommited_obj.idx%2] = self.uncommited_obj
+            self.handle_diff(v[1][v[0]%2], v[1][(v[0]+1)%2])
         else:
             print("== incomplete obj", "\n".join(self.uncommited_obj.lines))
         self.uncommited_obj = Obj()
@@ -94,7 +93,7 @@ class Watcher(object):
             IDENTIFY_LINE = line
 
         if line == IDENTIFY_LINE:
-            print("============= ", datetime.datetime.now(), "= feed new object")
+            print("============= ", datetime.datetime.now(), "= feed new object ============================")
             self._commit()
 
         if not ignore_line(line):
