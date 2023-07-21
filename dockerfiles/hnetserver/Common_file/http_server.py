@@ -48,14 +48,12 @@ def do_POST2(self):
 def run_https(port, handler):
     proto[0] = "https"
     httpd = http.server.HTTPServer(("", port), handler)
-    httpd.socket = ssl.wrap_socket (httpd.socket,
-            keyfile="./cert/ssl.key",
-            certfile='./cert/ssl.crt',
-            ca_certs="./cert/ca.crt",
-            ssl_version=ssl.PROTOCOL_SSLv23,
-            cert_reqs=ssl.CERT_OPTIONAL,
-            #cert_reqs=ssl.CERT_REQUIRED,
-            server_side=True)
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile='./cert/ssl.crt', keyfile="./cert/ssl.key")
+    context.set_ciphers('ALL:@SECLEVEL=0')
+
+    httpd.socket = context.wrap_socket (httpd.socket, server_side=True)
     print("serving at port", port)
     httpd.serve_forever()
 
