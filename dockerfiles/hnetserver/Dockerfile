@@ -1,24 +1,23 @@
-# copy from https://hub.docker.com/r/nicolaka/netshoot/dockerfile
-FROM alpine:3.10.3
+FROM ubuntu:22.04
 
-LABEL maintainer="Huanle Han <hanhuanle@caicloud.io>"
+LABEL maintainer="Huanle Han <hanxueluo@gmail.com>"
+
+COPY ./sources.list /etc/apt/
 
 RUN set -ex \
-    && echo "http://nl.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
-    && echo "http://nl.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories \
-    && apk update \
-    && apk upgrade \
-    && apk add --no-cache \
+    && apt update \
+    && apt -y upgrade \
+    && apt -y install --no-install-recommends \
     apache2-utils \
     bash \
-    bind-tools \
+    dnsutils \
     bird \
+    iputils-ping \
+    iputils-arping \
     bridge-utils \
-    busybox-extras \
-    conntrack-tools \
+    conntrack \
     curl \
     dhcping \
-    drill \
     ethtool \
     file\
     fping \
@@ -28,43 +27,38 @@ RUN set -ex \
     ipset \
     iptables \
     iptraf-ng \
-    iputils \
     ipvsadm \
-    libc6-compat \
-    liboping \
     mtr \
-    net-snmp-tools \
+    procps \
     netcat-openbsd \
     nftables \
     ngrep \
     nmap \
-    nmap-nping \
     openssl \
-    python2 \
-    scapy \
+    python3 \
+    python3-pip \
     socat \
     strace \
     tcpdump \
     tcptraceroute \
     util-linux \
-    vim
+    wget \
+    vim \
+    git \
+    ssh \
+    sshpass \
+	&& rm -rf /var/lib/apt/lists/*
 
-# apparmor issue #14140
-RUN mv /usr/sbin/tcpdump /usr/bin/tcpdump
 
-# Installing ctop - top-like container monitor
-RUN wget https://github.com/bcicen/ctop/releases/download/v0.7.1/ctop-0.7.1-linux-amd64 -O /usr/local/bin/ctop && chmod +x /usr/local/bin/ctop
+RUN python3 -m pip install --upgrade pip \
+    && python3 -m pip install grpcio grpcio-tools \
+    && python3 -m pip install grpcio-reflection
 
-# Installing calicoctl
-ARG CALICOCTL_VERSION=v3.5.7
-RUN wget https://github.com/projectcalico/calicoctl/releases/download/${CALICOCTL_VERSION}/calicoctl && chmod +x calicoctl && mv calicoctl /usr/local/bin
-
-# Settings
-#ADD motd /etc/motd
-#ADD profile  /etc/profile
+RUN cd / && git clone https://github.com/hanxueluo/htools.git
+ENV PATH="$PATH:/htools/"
 
 ADD Common_file /Common_file
 
 WORKDIR /Common_file
 
-ENTRYPOINT ["sh", "/Common_file/start_socket.sh"]
+ENTRYPOINT ["bash", "/Common_file/start_socket.sh"]
