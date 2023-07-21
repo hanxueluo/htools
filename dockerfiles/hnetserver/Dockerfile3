@@ -1,7 +1,8 @@
-# copy from https://hub.docker.com/r/nicolaka/netshoot/dockerfile
-FROM cargo.caicloud.xyz/library/debian:stretch
+FROM ubuntu:22.04
 
-LABEL maintainer="Huanle Han <hanhuanle@caicloud.io>"
+LABEL maintainer="Huanle Han <hanxueluo@gmail.com>"
+
+COPY ./sources.list /etc/apt/
 
 RUN set -ex \
     && apt update \
@@ -11,6 +12,8 @@ RUN set -ex \
     bash \
     dnsutils \
     bird \
+    iputils-ping \
+    iputils-arping \
     bridge-utils \
     conntrack \
     curl \
@@ -41,12 +44,18 @@ RUN set -ex \
     util-linux \
     wget \
     vim \
+    git \
+    ssh \
+    sshpass \
 	&& rm -rf /var/lib/apt/lists/*
 
 
 RUN python3 -m pip install --upgrade pip \
     && python3 -m pip install grpcio grpcio-tools \
     && python3 -m pip install grpcio-reflection
+
+RUN cd / && git clone https://github.com/hanxueluo/htools.git
+ENV PATH="$PATH:/htools/"
 
 ADD Common_file /Common_file
 
