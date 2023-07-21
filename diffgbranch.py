@@ -1,17 +1,20 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 import os
 import subprocess
 import re
 import sys
+from typing import List, Dict, Tuple, Set
 
-def execute(cmd):
-    print cmd
+def execute(cmd: str or List[str]) -> Tuple[int, str, str]:
+    print(cmd)
     shell = isinstance(cmd, str)
     p = subprocess.Popen(cmd, shell=shell, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True)
     stdout, stderr = p.communicate()
+    stdout = stdout.decode()
+    stderr = stderr.decode()
     return (p.returncode, stdout, stderr)
 
-def simple_line(msg, b):
+def simple_line(msg: str, b: str) -> str:
     if b.startswith('origin/'):
         b = b.split('/', 1)[1]
     m0 = msg
@@ -23,13 +26,13 @@ def simple_line(msg, b):
     msg = re.sub("\(\)", "", msg).strip()
     return msg
 
-def simple_msg(logs, b):
+def simple_msg(logs: List[str], b: str) -> List[str]:
     res = []
     for msg in logs:
         res.append(simple_line(msg, b))
     return res
 
-def diff_log(l1, b1, l2, b2):
+def diff_log(l1: List[str], b1: str, l2: List[str], b2: str) -> Tuple[List[str], List[str]]:
     res1 = []
     res2 = []
 
@@ -46,7 +49,7 @@ def diff_log(l1, b1, l2, b2):
             res2.append(l)
     return res1, res2
 
-def diff_branch(b1, b2, args):
+def diff_branch(b1: str, b2: str, args: str):
 
     if args == "":
         args = "@V"
@@ -62,10 +65,10 @@ def diff_branch(b1, b2, args):
     log2 = log2.splitlines()
 
     r1, r2 = diff_log(log1, b2, log2, b1)
-    print "======== %-10s ======= %d" % (b2, len(log1))
-    print "\n".join(r1)
-    print "======== %-10s ======= %d" % (b1, len(log2))
-    print "\n".join(r2)
+    print("======== %-10s ======= %d" % (b2, len(log1)))
+    print("\n".join(r1))
+    print("======== %-10s ======= %d" % (b1, len(log2)))
+    print("\n".join(r2))
 
 
 
