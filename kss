@@ -1,0 +1,33 @@
+#!/bin/bash
+
+ns=default
+app=htools
+tmpdir=/tmp/hhl.kss
+mkdir -p $tmpdir
+
+
+generate_jump_pods() {
+    kubectl config current-context > $tmpdir/ctx
+
+    kubectl -n $ns get pod -l app=$app --no-headers -owide  |grep Running|awk '{print $1}' | tee $tmpdir/pods
+    echo ""
+    kubectl get node --no-headers -owide | tee $tmpdir.nodes
+    echo ""
+}
+
+if [ "$1" = "-f" ];then
+    generate_jump_pods
+    shift
+fi
+if [ ! -f "$tmpdir/pods" ];then
+    generate_jump_pods
+fi
+
+pod=$(head -1 $tmpdir/pods)
+node=
+if [ "$1" = "node" -o "$1" = "" ];then
+    node="$(grep -v vci- $tmpdir.nodes | awk '{print $6}' |head -1)"
+    shift
+fi
+
+kubectl exec -n $ns $pod -it -- hss $node "$@"
