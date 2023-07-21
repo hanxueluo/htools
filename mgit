@@ -1,0 +1,12 @@
+#!/bin/bash
+
+for a in `ls`
+do
+    test ! -d $a/.git && continue
+    echo =========== $a ===============
+        cd $a
+        git --no-pager "$@"
+        cd -
+
+    sleep 0.1
+done
