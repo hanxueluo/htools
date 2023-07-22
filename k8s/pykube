@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 import re
+from functools import partial
 
 KUBECTL_GET_TMPFILE="/tmp/hhl.kubectl_alias/get.tmpfile"
 """
@@ -39,6 +40,91 @@ tmpdir=os.path.dirname(KUBECTL_GET_TMPFILE)
 if not os.path.isdir(tmpdir):
     os.mkdir(tmpdir)
 
+def or_selectors(*ss):
+    def _f(line, ext):
+        for s in ss:
+            b, ext = s(line, ext)
+            if b:
+                return True, ext
+        return False, ext
+    return _f
+
+def and_selectors(*ss):
+    def _f(line, ext):
+        for s in ss:
+            b, ext = s(line, ext)
+            if not b:
+                return False, ext
+        return True, ext
+    return _f
+
+def not_selector(s):
+    def _f(line, ext):
+        b, ext = s(line, ext)
+        return not b, ext
+    return _f
+
+def true_selector(line, ext):
+    return True, ext
+
+def line_no_selector(line, ext):
+    return False, ext
+
+def get_patter_selector(pattern, column=-1):
+    reverse = pattern[0] == '@'
+    equal = pattern[0] == '='
+    pattern_ = pattern[1:]
+    rc = None
+    if not equal:
+        rc = re.compile(pattern_)
+
+    def _pattern_selector(line, ext):
+        s = line
+        if column >= 0:
+            s = line.split()[column]
+        if equal:
+            return s == pattern_, ext
+        if rc.search(s):
+            return False if reverse else True, ext
+        else:
+            return True if reverse else False, ext
+    return _pattern_selector
+
+
+def column_extrator(columns, line):
+    """ Extract specified columns from line
+
+    Parameters:
+        colums(int or List[int])
+        line(str)
+    Returns:
+        result List[str] if colums is list
+        result str if colums is int
+    """
+    items = line.split()
+    if type(columns) is list:
+        return tuple([ items[c] for c in columns ])
+    else:
+        return items[columns]
+
+
+def do_filter(lines, selector, extractor):
+    """ Return List[str]
+    """
+    res = []
+    ext = None
+    for line in lines:
+        if selector:
+            b, ext = selector(line, ext)
+        else:
+            b = True
+        if b:
+            if extractor:
+                line = extractor(line)
+            res.append(line)
+    return res
+
+################################
 def print_to_stderr(message, newline=True):
     end = '\n' if newline else ''
     print("# ", message, file=sys.stderr, end=end)
@@ -175,7 +261,7 @@ class Executor(object):
         self.kind = kind
         self.resource = resource
         self.content_pattern = ""
-        self.others = others.split() if others is str else others
+        self.others = others.split() if type(others) is str else others
 
         self.kind, self.resource = self._reset_kind_resource(self.kind, self.resource)
         rr = re.search(r"([\d.]+)([/@=].+)", self.resource)
@@ -184,7 +270,6 @@ class Executor(object):
         if rr:
             self.content_pattern = rr.group(2)
             self.resource = rr.group(1)
-
 
     def _reset_kind_resource(self, kind, resource):
         # handle "pod/kube-proxy-pch4q" and "all pod/kube-proxy-pch4q"
@@ -303,7 +388,6 @@ class Executor(object):
         option = KubeOption(self.others)
 
         # 1. expand namespace and resource
-        #import pdb;pdb.set_trace()
         hasfilter = False
         if self.resource.isdigit():
             lines = Utility.read_file(KUBECTL_GET_TMPFILE + "." + kind).splitlines()
@@ -396,7 +480,7 @@ class Executor(object):
 
     def format_by_pattern(self, lines, pattern):
         if pattern:
-            lines = self.filter_by_pattern(lines, pattern)
+            lines = self.select_by_pattern(lines, pattern)
         return lines
 
     def output_result(self, lines, kind, tofile):
@@ -410,39 +494,11 @@ class Executor(object):
         print(result)
         return lines
 
-    def filter_by_pattern(self, lines, pattern):
-        if not lines:
-            return lines
-        title = lines[0]
-        if title.startswith("NAME ") or title.startswith("NAMESPACE "):
-            lines = lines[1:]
-        else:
-            title = ""
-
-        idx = ""
-        pitems = pattern.rsplit(":", 1)
-        # to support index after match, e.g. "/pattern:1"
-        if len(pitems) == 2:
-            idx = pitems[1]
-            if idx.isdigit() or ( idx and idx[0] == "-" and idx[1:].isdigit()):
-                pattern = pitems[0]
-                idx = int(idx)
-
-        rr = re.compile(pattern[1:])
-        lines2 = []
-        for line in lines:
-            if rr.search(line):
-                if pattern[0] == "/":
-                    lines2.append(line)
-            else:
-                if pattern[0] == "@":
-                    lines2.append(line)
-
-        if isinstance(idx, int):
-            lines2 = [lines2[idx]]
-        if title:
-            lines2.insert(0, title)
-        return lines2
+    def select_by_pattern(self, lines, pattern):
+        def _select_title(line, ext):
+            return line.startswith("NAME ") or line.startswith("NAMESPACE"), ext
+        f = get_patter_selector(pattern)
+        return do_filter(lines, or_selectors(_select_title, f), None)
 
     def confirm_before_do(self, message):
         print_to_stderr(message, False)
@@ -457,55 +513,54 @@ class Executor(object):
         if not lines:
             return res
 
-        ns = lines[0].split()[0]
+        ns = column_extrator(0, lines[0])
         id_index = 1 if ns in ["NS", "NAMESPACE"] else 0
 
-        for line in lines[1:]:
-            items = line.split()
+        ll = do_filter(lines[1:], None, partial(column_extrator, [0, 1]))
+        for items in ll:
             ns = items[0] if id_index != 0 else "-"
             res.setdefault(ns, []).append(items[id_index])
 
         return res
 
     def extract_ns_by_name(self, lines, column, name):
-        for line in lines:
-            items = line.split()
-            if items[column] == name:
-                return items[column - 1]
-        return ""
+        res = do_filter(lines, get_patter_selector("="+name, column), partial(column_extrator, 0))
+        return res[0] if res else ""
+
 
     def extract_namespace_resource(self, lines, numbers):
         if not lines:
             return lines
-        ns = lines[0].split()[1]
-        has_ns = ns in ["NS", "NAMESPACE"]
-        lines2 = []
-        for line in lines:
+        has_ns = lines[0].split()[1] in ["NS", "NAMESPACE"]
+
+        def _s(line, ext):
             items = line.split()
-            if items[0] in numbers:
-                numbers.remove(items[0])
-                if has_ns:
-                    lines2.append((items[1], items[2]))
-                else:
-                    lines2.append(("-", items[1]))
-            if not numbers:
-                break
-        return lines2
+            b = items[0] in numbers #TODO reduce numbers
+            return b, ext
+
+        def _e(line):
+            items = line.split()
+            if has_ns:
+                return items[1], items[2]
+            else:
+                return "-", items[1]
+
+        return do_filter(lines, _s, _e)
 
     def add_line_number(self, lines, prefix=""):
-        lines2 = []
-        for index, line in enumerate(lines):
-            s = str(index)
+        def _e(index, line):
+            s = str(index[0])
+            index[0] = index[0] + 1
             if line.startswith("NAME ") or line.startswith("NAMESPACE"):
                 s = "=="
-            lines2.append("%-2s %s" % (s, prefix+line))
-        return lines2
+            return "%-2s %s" % (s, prefix+line)
+
+        return do_filter(lines, None, partial(_e, [0]))
 
 def test():
     # 1. resource is "", but others is not
-    Executor("delete", "pod", "/can").execute()
+    Executor("delete", "pod", "/noexist").execute()
     Executor("get", "pod", "1", "-o wide").execute()
-    sys.exit(0)
     Executor("get", "pod").execute()
     Executor("get", "pod", ".ns").execute()
     Executor("get", "pod", "1", "-o wide").execute()
