@@ -50,10 +50,6 @@ RUN set -ex \
 	&& rm -rf /var/lib/apt/lists/*
 
 
-RUN python3 -m pip install --upgrade pip \
-    && python3 -m pip install grpcio grpcio-tools \
-    && python3 -m pip install grpcio-reflection
-
 RUN cd / && git clone https://github.com/hanxueluo/htools.git
 ENV PATH="$PATH:/htools/"
 
