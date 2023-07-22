@@ -54,7 +54,7 @@ kubealias() {
 
 _k_setup_kubectl_alias() {
     PYKUBE=
-    for pykube in $ /root/hroot/htools/pykube ~/work/htools/pykube ~/htools/pykube
+    for pykube in $ /root/hroot/htools/k8s/pykube ~/work/htools/k8s/pykube ~/htools/k8s/pykube
     do
         if test -e "$pykube";then
             PYKUBE=$pykube
@@ -123,7 +123,7 @@ EOF
 
 _k_setup_docker_alias() {
     local PYDOCKER=
-    for file in /root/hroot/htools/pydocker ~/work/htools/pydocker ~/htools/pydocker
+    for file in /root/hroot/htools/k8s/pydocker ~/work/htools/k8s/pydocker ~/htools/k8s/pydocker
     do
         if test -e "$file";then
             PYDOCKER=$file
@@ -139,7 +139,7 @@ _k_setup_docker_alias() {
 
 _k_setup_finch_alias() {
     local PYDOCKER=
-    for file in /root/hroot/htools/pydocker ~/work/htools/pydocker ~/htools/pydocker
+    for file in /root/hroot/htools/k8s/pydocker ~/work/htools/k8s/pydocker ~/htools/k8s/pydocker
     do
         if test -e "$file";then
             PYDOCKER=$file
