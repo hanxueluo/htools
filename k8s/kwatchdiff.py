@@ -52,11 +52,11 @@ class Watcher(object):
     def start_commit_timer(self):
         def timer_thread():
             while True:
-                time.sleep(0.2) # sleep 1s
+                time.sleep(0.2) # sleep n seconds
                 self.commit_with_lock(timeout=1)
 
         timer_thread = threading.Thread(target=timer_thread)
-        timer_thread.daemon = True  # 将线程设置为守护线程，这样程序退出时会自动结束定时器线程
+        timer_thread.daemon = True
         timer_thread.start()
 
     def commit_with_lock(self, timeout=-1):
