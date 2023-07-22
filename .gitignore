@@ -111,5 +111,6 @@ netctl
 ovn-trace
 sshpass
 sshpass-*
+/bin
 
 .[a-z]*
