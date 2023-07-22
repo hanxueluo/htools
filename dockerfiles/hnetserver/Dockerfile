@@ -50,8 +50,8 @@ RUN set -ex \
 	&& rm -rf /var/lib/apt/lists/*
 
 
-RUN cd / && git clone https://github.com/hanxueluo/htools.git
-ENV PATH="$PATH:/htools/"
+RUN cd / && git clone https://github.com/hanxueluo/htools.git && /bin/bash /htools/init_bin.sh
+ENV PATH="$PATH:/htools/bin/"
 
 ADD Common_file /Common_file
 
