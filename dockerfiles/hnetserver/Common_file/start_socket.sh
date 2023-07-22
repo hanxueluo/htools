@@ -97,8 +97,8 @@ setup_bg_cmd
 setup_http
 setup_https
 
-setup_grpc
-setup_grpcs
+#setup_grpc
+#setup_grpcs
 
 setup_udp
 
