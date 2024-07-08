@@ -20,9 +20,11 @@ git_clone() {
     local url=$1
     d=$(parse_url $url)
     d=${GOPATH}/src/$d
+    dd=$(basename $url | sed 's/\.git$//')
     echo "cd $d"
     mkdir -p $d
     ( cd $d; git clone $url; )
+    echo "cd $d/$dd"
 }
 
 git_clone "$@"
