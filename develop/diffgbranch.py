@@ -19,11 +19,11 @@ def simple_line(msg: str, b: str) -> str:
         b = b.split('/', 1)[1]
     m0 = msg
     msg = msg.split(" ", 1)[1].strip()
-    msg = re.sub("^\([^()]*\)", "", msg).strip() # remove tag decorate
+    msg = re.sub(r"^\([^()]*\)", "", msg).strip() # remove tag decorate
     msg = msg.replace("[%s]" % b, "").strip() # remove current branch decorate
     #msg = msg.replace("\[[-\w\d\./]+\]", "").strip() # remove all branch decorate
-    msg = re.sub("#\d+", "", msg).strip() # remove pr number
-    msg = re.sub("\(\)", "", msg).strip()
+    msg = re.sub(r"#\d+", "", msg).strip() # remove pr number
+    msg = re.sub(r"\(\)", "", msg).strip()
     return msg
 
 def simple_msg(logs: List[str], b: str) -> List[str]:
