@@ -1,0 +1,17 @@
+#!/bin/bash
+
+remoteb=$1
+
+if ! echo $remoteb | grep -qF '/' ;then
+    remoteb=origin/$remoteb
+fi
+
+localb=$(echo $remoteb | sed 's,^.*/,,')
+
+set -x
+if git branch | grep "^$localb$";then
+   git switch -f $localb
+else
+   git switch -c $localb -t $remoteb
+fi
+git pull --rebase
